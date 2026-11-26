@@ -77,13 +77,13 @@ export async function listRequisitions(organizationId: string, userId: string, r
     ...record,
     id: record._id.toString(),
     requester: record.requesterId && typeof record.requesterId === "object" && "name" in record.requesterId
-      ? { id: (record.requesterId as { _id: Types.ObjectId })._id.toString(), name: (record.requesterId as { name: string }).name, email: (record.requesterId as { email: string }).email }
+      ? { id: (record.requesterId as { _id: Types.ObjectId })._id.toString(), name: (record.requesterId as { name: string }).name, email: (record.requesterId as unknown as { email: string }).email }
       : null,
     requesterId: typeof record.requesterId === "object" ? (record.requesterId as { _id: Types.ObjectId })._id.toString() : String(record.requesterId),
     approvals: record.approvals.map((step) => ({
       ...step,
       approver: step.approverId && typeof step.approverId === "object" && "name" in step.approverId
-        ? { id: (step.approverId as { _id: Types.ObjectId })._id.toString(), name: (step.approverId as { name: string }).name, email: (step.approverId as { email: string }).email }
+        ? { id: (step.approverId as { _id: Types.ObjectId })._id.toString(), name: (step.approverId as { name: string }).name, email: (step.approverId as unknown as { email: string }).email }
         : null,
       approverId: typeof step.approverId === "object" ? (step.approverId as { _id: Types.ObjectId })._id.toString() : String(step.approverId),
     })),
@@ -99,13 +99,13 @@ export async function getRequisition(organizationId: string, requisitionId: stri
     ...record,
     id: record._id.toString(),
     requester: record.requesterId && typeof record.requesterId === "object" && "name" in record.requesterId
-      ? { id: (record.requesterId as { _id: Types.ObjectId })._id.toString(), name: (record.requesterId as { name: string }).name, email: (record.requesterId as { email: string }).email }
+      ? { id: (record.requesterId as { _id: Types.ObjectId })._id.toString(), name: (record.requesterId as { name: string }).name, email: (record.requesterId as unknown as { email: string }).email }
       : null,
     requesterId: typeof record.requesterId === "object" ? (record.requesterId as { _id: Types.ObjectId })._id.toString() : String(record.requesterId),
     approvals: record.approvals.map((step) => ({
       ...step,
       approver: step.approverId && typeof step.approverId === "object" && "name" in step.approverId
-        ? { id: (step.approverId as { _id: Types.ObjectId })._id.toString(), name: (step.approverId as { name: string }).name, email: (step.approverId as { email: string }).email }
+        ? { id: (step.approverId as { _id: Types.ObjectId })._id.toString(), name: (step.approverId as { name: string }).name, email: (step.approverId as unknown as { email: string }).email }
         : null,
       approverId: typeof step.approverId === "object" ? (step.approverId as { _id: Types.ObjectId })._id.toString() : String(step.approverId),
     })),
