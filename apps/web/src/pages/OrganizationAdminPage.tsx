@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, Building2, ClipboardList, Copy, LoaderCircle, MailPlus, RefreshCw, Shield, Trash2, UserRoundCog, Users } from "lucide-react";
+import { ArrowLeft, Building2, ClipboardList, Copy, MailPlus, RefreshCw, Shield, Trash2, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ApiError, apiRequest } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
@@ -27,7 +27,7 @@ export function OrganizationAdminPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [tab, setTab] = useState<"members" | "audit" | "security">("members");
+  const [tab, setTab] = useState<"members" | "audit" | "security">(canReadMembers ? "members" : canReadAudit ? "audit" : "security");
   const canManage = role === "owner" || role === "admin";
   const canEditOrganization = role === "owner" || role === "admin";
 
@@ -36,9 +36,9 @@ export function OrganizationAdminPage() {
     try {
       const [org, memberData, inviteData, auditData, sessionData] = await Promise.all([
         apiRequest<{ organization: Organization }>("/organization", { method: "GET" }),
-        apiRequest<{ members: Member[] }>("/organization/members", { method: "GET" }),
+        canReadMembers ? apiRequest<{ members: Member[] }>("/organization/members", { method: "GET" }) : Promise.resolve({ members: [] as Member[] }),
         canManage ? apiRequest<{ invitations: Invitation[] }>("/organization/invitations", { method: "GET" }) : Promise.resolve({ invitations: [] }),
-        apiRequest<{ events: AuditEvent[] }>("/organization/audit-events?limit=30", { method: "GET" }),
+        canReadAudit ? apiRequest<{ events: AuditEvent[] }>("/organization/audit-events?limit=30", { method: "GET" }) : Promise.resolve({ events: [] as AuditEvent[] }),
         apiRequest<{ sessions: Session[] }>("/auth/sessions", { method: "GET" }),
       ]);
       setOrganization(org.organization); setName(org.organization.name);
@@ -125,11 +125,11 @@ export function OrganizationAdminPage() {
           {canEditOrganization && <button className="admin-primary" type="submit">Save changes</button>}
         </form>
         <div className="admin-tabs" role="tablist">
-          <button className={tab === "members" ? "selected" : ""} onClick={() => setTab("members")}><Users size={16} /> Team & invitations</button>
-          <button className={tab === "audit" ? "selected" : ""} onClick={() => setTab("audit")}><ClipboardList size={16} /> Audit activity</button>
+          {canReadMembers && <button className={tab === "members" ? "selected" : ""} onClick={() => setTab("members")}><Users size={16} /> Team & invitations</button>}
+          {canReadAudit && <button className={tab === "audit" ? "selected" : ""} onClick={() => setTab("audit")}><ClipboardList size={16} /> Audit activity</button>}
           <button className={tab === "security" ? "selected" : ""} onClick={() => setTab("security")}><Shield size={16} /> My sessions</button>
         </div>
-        {tab === "members" && <>
+        {tab === "members" && canReadMembers && <>
           {canManage && <form className="invite-panel" onSubmit={invite}>
             <div className="panel-heading"><div className="panel-icon"><MailPlus size={18} /></div><div><h2>Invite a teammate</h2><p>Invitations expire after seven days and are restricted to the invited email address.</p></div></div>
             <div className="invite-fields"><label>Email address<input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="colleague@company.com" required /></label><label>Organization role<select value={inviteRole} onChange={event => setInviteRole(event.target.value)}>{roles.map(item => <option key={item} value={item}>{roleLabel(item)}</option>)}</select></label><button className="admin-primary" type="submit" disabled={busy}>Create invitation</button></div>
@@ -143,7 +143,7 @@ export function OrganizationAdminPage() {
           </section>
           {canManage && <section className="admin-panel"><div className="panel-title"><div><h2>Pending invitations</h2><p>Only active, unexpired invitations are shown.</p></div><span className="count-pill">{invitations.length}</span></div>{invitations.length ? <div className="invitation-list">{invitations.map(item => <div className="invitation-row" key={item.id}><div><strong>{item.email}</strong><span>{roleLabel(item.role)} · expires {new Date(item.expiresAt).toLocaleDateString()}</span></div><button className="danger-text" onClick={() => void revokeInvitation(item.id)}>Revoke</button></div>)}</div> : <p className="empty-state">No pending invitations.</p>}</section>}
         </>}
-        {tab === "audit" && <section className="admin-panel"><div className="panel-title"><div><h2>Organization audit trail</h2><p>Recent governance events for this tenant.</p></div></div>{events.length ? <div className="activity-list">{events.map(item => <div className="activity-row" key={item.id}><span className="activity-dot" /><div><strong>{item.action.replaceAll(".", " ")}</strong><span>{item.actor?.name ?? "System"} · {item.targetType}</span></div><time>{new Date(item.createdAt).toLocaleString()}</time></div>)}</div> : <p className="empty-state">No audit events recorded yet.</p>}</section>}
+        {tab === "audit" && canReadAudit && <section className="admin-panel"><div className="panel-title"><div><h2>Organization audit trail</h2><p>Recent governance events for this tenant.</p></div></div>{events.length ? <div className="activity-list">{events.map(item => <div className="activity-row" key={item.id}><span className="activity-dot" /><div><strong>{item.action.replaceAll(".", " ")}</strong><span>{item.actor?.name ?? "System"} · {item.targetType}</span></div><time>{new Date(item.createdAt).toLocaleString()}</time></div>)}</div> : <p className="empty-state">No audit events recorded yet.</p>}</section>}
         {tab === "security" && <section className="admin-panel"><div className="panel-title"><div><h2>Active sessions</h2><p>Sessions associated with your current organization.</p></div></div>{sessions.length ? <div className="session-list">{sessions.map(item => <div className="session-row" key={item.id}><div><strong>{item.userAgent}</strong><span>{item.ipAddress ?? "IP unavailable"} · started {new Date(item.createdAt).toLocaleString()}</span></div><div className="session-actions">{item.current ? <span className="current-session">Current session</span> : <button className="danger-text" onClick={() => void revokeSession(item.id)}>Revoke</button>}</div></div>)}</div> : <p className="empty-state">No active sessions found.</p>}</section>}
         <footer className="admin-footer">Organization data is scoped by your authenticated tenant membership. Current workspace: {activeOrganization.slug}.</footer>
       </section>
