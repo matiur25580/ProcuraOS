@@ -34,6 +34,7 @@ const requisitionSchema = new Schema({
   decidedAt: { type: Date, default: null },
   rejectionReason: { type: String, default: null, maxlength: 1000 },
   budgetStatus: { type: String, enum: ["not_checked", "within_budget", "over_budget", "unconfigured"], default: "not_checked" },
+  budgetId: { type: Schema.Types.ObjectId, ref: "Budget", default: null },
 }, { timestamps: true });
 
 requisitionSchema.index({ organizationId: 1, createdAt: -1 });
