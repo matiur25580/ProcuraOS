@@ -13,7 +13,7 @@ const invitationSchema = new Schema({
   revokedAt: { type: Date, default: null },
 }, { timestamps: true });
 
-invitationSchema.index({ organizationId: 1, email: 1, status: 1 });
+invitationSchema.index({ organizationId: 1, email: 1 }, { unique: true, partialFilterExpression: { status: "pending" } });
 invitationSchema.index({ organizationId: 1, createdAt: -1 });
 
 export const Invitation = model("Invitation", invitationSchema);
