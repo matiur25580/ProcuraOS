@@ -3,14 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "description": "AI-assisted enterprise procurement and supplier collaboration platform",
-  "workspaces": ["apps/api", "apps/web"],
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"npm run dev -w @procuraos/api\" \"npm run dev -w @procuraos/web\"",
     "build": "npm run build -w @procuraos/api && npm run build -w @procuraos/web",
     "typecheck": "npm run typecheck -w @procuraos/api && npm run typecheck -w @procuraos/web",
     "lint": "npm run lint --workspaces --if-present",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test": "npm run test -w @procuraos/api"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
