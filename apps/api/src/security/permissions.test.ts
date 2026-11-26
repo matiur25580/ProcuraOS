@@ -17,4 +17,16 @@ describe("organization role permissions", () => {
     expect(hasPermission("auditor", "audit:read")).toBe(true);
     expect(hasPermission("auditor", "procurement:write")).toBe(false);
   });
+  it("restricts member administration to owners and administrators", () => {
+    expect(hasPermission("admin", "members:manage")).toBe(true);
+    expect(hasPermission("procurement_manager", "members:read")).toBe(true);
+    expect(hasPermission("procurement_manager", "members:manage")).toBe(false);
+    expect(hasPermission("finance_manager", "members:manage")).toBe(false);
+  });
+
+  it("allows audit readers without granting them member administration", () => {
+    expect(hasPermission("auditor", "audit:read")).toBe(true);
+    expect(hasPermission("auditor", "members:manage")).toBe(false);
+  });
+
 });
