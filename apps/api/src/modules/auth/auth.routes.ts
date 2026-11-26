@@ -2,7 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { authenticate } from "../../middleware/authenticate.js";
 import { validateBody } from "../../middleware/validate.js";
-import { createOrganizationController, listOrganizationsController, loginController, logoutAllController, logoutController, meController, refreshController, registerController, switchOrganizationController, updateProfileController } from "./auth.controller.js";
+import { createOrganizationController, listOrganizationsController, loginController, logoutAllController, logoutController, meController, refreshController, registerController, switchOrganizationController, updateProfileController, listSessionsController, revokeSessionController } from "./auth.controller.js";
 import { createOrganizationSchema, loginSchema, registerSchema, switchOrganizationSchema, updateProfileSchema } from "./auth.schemas.js";
 
 export const authRouter = Router();
@@ -17,7 +17,7 @@ authRouter.post("/refresh", authLimiter, refreshController);
 authRouter.post("/logout", logoutController);
 authRouter.post("/logout-all", authenticate, logoutAllController);
 authRouter.get("/me", authenticate, meController);
-authRouter.patch("/me", authenticate, validateBody(updateProfileSchema), updateProfileController);
+authRouter.patch("/me", authenticate, validateBody(updateProfileSchema), updateProfileController);\nauthRouter.get("/sessions", authenticate, listSessionsController);\nauthRouter.delete("/sessions/:sessionId", authenticate, revokeSessionController);
 authRouter.get("/organizations", authenticate, listOrganizationsController);
 authRouter.post("/organizations", authenticate, validateBody(createOrganizationSchema), createOrganizationController);
 authRouter.post("/switch-organization", authenticate, validateBody(switchOrganizationSchema), switchOrganizationController);
