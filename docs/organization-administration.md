@@ -35,7 +35,7 @@ All paths below are under `/api/v1`.
 
 ## Invitation delivery
 
-The API returns the raw invitation token exactly once in the create-invitation response so the current UI can construct a shareable invitation URL. The database stores only the token hash, and the token is never returned by the invitation-list endpoint. This is a development-stage delivery mechanism, not an email delivery integration. Before production, connect a transactional email provider and deliver the URL privately instead of displaying the raw token to the inviter.
+The API returns the raw invitation token exactly once in the create-invitation response so the current UI can construct a shareable invitation URL. The UI places the token in the URL fragment (not the query string), so browsers do not send it as part of the HTTP request or Referer header. The database stores only the token hash, and the token is never returned by the invitation-list endpoint. This is a development-stage delivery mechanism, not an email delivery integration. Before production, connect a transactional email provider and deliver the URL privately instead of displaying the raw token to the inviter.
 
 ## Ownership and consistency safeguards
 
