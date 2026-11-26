@@ -29,8 +29,8 @@ async function uniqueSlug(name: string): Promise<string> {
   return slug;
 }
 
-function publicUser(user: { id: string; name: string; email: string }) {
-  return { id: user.id, name: user.name, email: user.email };
+function publicUser(user: { _id: { toString(): string }; name: string; email: string }) {
+  return { id: user._id.toString(), name: user.name, email: user.email };
 }
 
 async function issueSession(userId: string, organizationId: string, membershipId: string, metadata: { userAgent?: string; ipAddress?: string }, familyId = createSessionFamilyId()) {
