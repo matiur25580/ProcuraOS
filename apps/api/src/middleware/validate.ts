@@ -7,7 +7,7 @@ export function validateBody<T>(schema: ZodType<T>): RequestHandler {
     if (!parsed.success) {
       res.status(400).json({
         success: false,
-        error: { message: "Request validation failed", details: parsed.error.flatten().fieldErrors },
+        error: { message: "Request validation failed", details: z.flattenError(parsed.error).fieldErrors },
       });
       return;
     }
