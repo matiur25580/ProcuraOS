@@ -7,7 +7,7 @@ function metadata(req: Request) {
   return { ...(req.ip ? { ipAddress: req.ip } : {}), ...(req.get("user-agent") ? { userAgent: req.get("user-agent")! } : {}) };
 }
 export async function listApproversController(req: Request, res: Response) {
-  const memberships = await Membership.find({ organizationId: req.auth!.organizationId, status: "active", userId: { $ne: req.auth!.userId } }).select("userId role").lean();
+  const memberships = await Membership.find({ organizationId: req.auth!.organizationId, status: "active", role: { $in: ["owner", "admin", "procurement_manager", "finance_manager"] }, userId: { $ne: req.auth!.userId } }).select("userId role").lean();
   const users = await User.find({ _id: { $in: memberships.map((member) => member.userId) }, status: "active" }).select("name email").lean();
   const byId = new Map(users.map((user) => [user._id.toString(), user]));
   const approvers = memberships.flatMap((member) => { const user = byId.get(member.userId.toString()); return user ? [{ id: user._id.toString(), name: user.name, email: user.email, role: member.role }] : []; });
