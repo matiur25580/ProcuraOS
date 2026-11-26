@@ -28,7 +28,7 @@ export function AcceptInvitationPage() {
       }
     })();
     return () => { active = false; };
-  }, [params, navigate, switchOrganization]);
+  }, [params, navigate]);
 
   return <main className="invite-accept-page"><div className="invite-accept-card"><span className="auth-form-icon"><ShieldCheck size={22} /></span><span className="eyebrow">PROCURAOS ORGANIZATION ACCESS</span><h1>{failed ? "Invitation unavailable" : "Joining your team"}</h1><p>{message}</p>{failed && <button className="admin-primary" onClick={() => navigate("/", { replace: true })}>Return to workspace</button>}{!failed && <CheckCircle2 size={25} className="invite-progress" />}</div></main>;
 }
