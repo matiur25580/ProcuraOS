@@ -50,8 +50,9 @@ ProcuraOS/
 
 1. Clone the repository.
 2. Copy `.env.example` to `.env` and set the required values.
-3. Install workspace dependencies with `npm install`.
-4. Start the API and web app with `npm run dev`.
+3. Start local MongoDB with `docker compose up -d mongodb` (or configure an Atlas connection).
+4. Install workspace dependencies with `npm install`.
+5. Start the API and web app with `npm run dev`.
 
 The API health endpoint is available at `http://localhost:4000/api/v1/health`; the web app runs at `http://localhost:5173`.
 
