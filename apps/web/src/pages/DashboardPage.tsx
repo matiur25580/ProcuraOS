@@ -1,4 +1,4 @@
-import { Activity, ArrowUpRight, Boxes, Building2, ClipboardCheck, LogOut, ShieldCheck, Truck } from "lucide-react";
+import { Activity, ArrowUpRight, Boxes, Building2, ClipboardCheck, LogOut, Settings, ShieldCheck, Truck } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 
 const capabilities = [
@@ -21,7 +21,7 @@ export function DashboardPage() {
           <a className="nav-link active" href="#overview"><Activity size={17} /> Overview</a>
           <a className="nav-link" href="#requests"><ClipboardCheck size={17} /> Requisitions</a>
           <a className="nav-link" href="#suppliers"><Truck size={17} /> Suppliers</a>
-          <a className="nav-link" href="#controls"><ShieldCheck size={17} /> Controls</a>
+          <a className="nav-link" href="#controls"><ShieldCheck size={17} /> Controls</a>\n          <a className="nav-link" href="/settings"><Settings size={17} /> Team & settings</a>
         </nav>
         <div className="sidebar-footer"><span className="status-indicator" /> Secure organization session</div>
       </aside>
