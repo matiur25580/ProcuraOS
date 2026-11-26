@@ -17,11 +17,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadProfile() {
-    const profile = await apiRequest<SessionData>("/auth/me", { method: "GET" }, false);
-    setSession(profile);
-  }
-
   useEffect(() => {
     let active = true;
     (async () => {
