@@ -37,6 +37,7 @@ export const authenticate: RequestHandler = async (req, res, next) => {
       userId: user.id,
       organizationId: membership.organizationId.toString(),
       membershipId: membership.id,
+      sessionFamilyId: claims.sid,
       role: membership.role as OrganizationRole,
     };
     next();
