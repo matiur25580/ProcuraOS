@@ -43,6 +43,12 @@ async function audit(input: {
   });
 }
 
+export async function getOrganization(organizationId: string) {
+  const organization = await Organization.findOne({ _id: organizationId, status: "active" }).select("name slug status");
+  if (!organization) throw new OrganizationError("Organization was not found", 404);
+  return { id: organization.id, name: organization.name, slug: organization.slug, status: organization.status };
+}
+
 export async function updateOrganization(
   organizationId: string,
   actorUserId: string,
