@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { OrganizationError, acceptInvitation, createInvitation, listAuditEvents, listInvitations, listMembers, removeMember, revokeInvitation, updateMember, updateOrganization } from "./organization.service.js";
+import { OrganizationError, acceptInvitation, createInvitation, getOrganization, listAuditEvents, listInvitations, listMembers, removeMember, revokeInvitation, updateMember, updateOrganization } from "./organization.service.js";
 
 function metadata(req: Request) {
   return {
@@ -8,6 +8,10 @@ function metadata(req: Request) {
   };
 }
 
+export async function getOrganizationController(req: Request, res: Response) {
+  const organization = await getOrganization(req.auth!.organizationId);
+  res.status(200).json({ success: true, data: { organization } });
+}
 export async function updateOrganizationController(req: Request, res: Response) {
   const organization = await updateOrganization(req.auth!.organizationId, req.auth!.userId, req.body.name as string, metadata(req));
   res.status(200).json({ success: true, data: { organization } });
