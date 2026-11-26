@@ -9,7 +9,8 @@ interface AuthContextValue extends SessionData {
   signIn(email: string, password: string): Promise<void>;
   signUp(name: string, email: string, password: string, organizationName: string): Promise<void>;
   signOut(): Promise<void>;
-  signOutAll(): Promise<void>;\n  switchOrganization(organizationId: string): Promise<void>;
+  signOutAll(): Promise<void>;
+  switchOrganization(organizationId: string): Promise<void>;
 }
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -55,7 +56,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     finally { setAccessToken(null); setSession(null); }
   }
 
-  async function switchOrganization(organizationId: string) {\n    const result = await apiRequest<{ organization: SessionOrganization; role: string; accessToken: string }>("/auth/switch-organization", {\n      method: "POST", body: JSON.stringify({ organizationId }),\n    }, false);\n    setAccessToken(result.accessToken);\n    setSession(current => current ? { ...current, organization: result.organization, role: result.role } : null);\n  }\n\n  async function signOutAll() {
+  async function switchOrganization(organizationId: string) {
+    const result = await apiRequest<{ organization: SessionOrganization; role: string; accessToken: string }>("/auth/switch-organization", {
+      method: "POST", body: JSON.stringify({ organizationId }),
+    }, false);
+    setAccessToken(result.accessToken);
+    setSession(current => current ? { ...current, organization: result.organization, role: result.role } : null);
+  }
+
+  async function signOutAll() {
     try { await apiRequest("/auth/logout-all", { method: "POST" }, false); }
     finally { setAccessToken(null); setSession(null); }
   }
