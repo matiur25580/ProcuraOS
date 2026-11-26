@@ -77,6 +77,12 @@ The current authentication implementation and API contract are documented in [`d
 
 After configuring `.env`, run `npm run dev`. Run `npm run typecheck`, `npm run test` and `npm run build` to validate the workspace.
 
+## Organization administration
+
+The next milestone adds tenant-scoped organization settings, member role and status management, seven-day invitation links, audit events and per-user session revocation. See [docs/organization-administration.md](docs/organization-administration.md) for the API contract, invitation delivery details and production follow-ups.
+
+The organization settings screen is available at `/settings` after signing in. An administrator can create a one-time invitation link and share it with the intended email recipient. The recipient must sign in with that same email before accepting the invitation.
+
 ## Roadmap
 
 - [x] Initial monorepo and application scaffolding
