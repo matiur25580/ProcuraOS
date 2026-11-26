@@ -15,7 +15,7 @@ export type Permission = (typeof ROLE_PERMISSIONS)[OrganizationRole][number];
 const membershipSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
   organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
-  role: { type: String, enum: Object.keys(ROLE_PERMISSIONS), required: true },
+  role: { type: String, enum: ["owner", "admin", "procurement_manager", "procurement_officer", "finance_manager", "auditor"], required: true },
   status: { type: String, enum: ["active", "suspended"], default: "active", index: true },
 }, { timestamps: true });
 
