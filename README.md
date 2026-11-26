@@ -94,3 +94,12 @@ Run npm run typecheck, npm run test and npm run build from the repository root. 
 ## License
 
 No license has been selected yet. All rights are reserved by default until a license is added.
+
+
+## Supplier onboarding and RFQ management
+
+The supplier sourcing workspace is available at /suppliers. Procurement users can register suppliers, review qualification status, track document references, create RFQs, issue one-time supplier invitations, close sourcing events, compare submitted quotations and award a selected quote.
+
+Supplier quote links use high-entropy one-time tokens. Only SHA-256 token hashes are stored; the raw token is returned once at issue time and embedded in the URL fragment. The public supplier portal exchanges the token in a POST body, and each invitation can submit one quotation. Public portal endpoints are rate-limited.
+
+See [docs/supplier-onboarding-rfq.md](docs/supplier-onboarding-rfq.md) for lifecycle rules, API routes and production follow-ups.

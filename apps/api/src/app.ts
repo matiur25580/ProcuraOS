@@ -8,6 +8,7 @@ import { getDatabaseStatus } from "./database/connection.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { organizationRouter } from "./modules/organization/organization.routes.js";
 import { requisitionRouter } from "./modules/requisitions/requisition.routes.js";
+import { supplierRouter } from "./modules/suppliers/supplier.routes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { notFoundHandler } from "./middleware/not-found.js";
 
@@ -31,5 +32,6 @@ app.get(env.API_PREFIX + "/ready", (_req, res) => {
 app.use(env.API_PREFIX + "/auth", authRouter);
 app.use(env.API_PREFIX + "/organization", organizationRouter);
 app.use(env.API_PREFIX + "/requisitions", requisitionRouter);
+app.use(env.API_PREFIX, supplierRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);

@@ -17,7 +17,7 @@ export function DashboardPage() {
         <span className="nav-heading">OVERVIEW</span>
         <a className="nav-link active" href="/"><Activity size={17} /> Overview</a>
         <a className="nav-link" href="/requisitions"><ClipboardCheck size={17} /> Requisitions</a>
-        <a className="nav-link" href="#suppliers"><Truck size={17} /> Suppliers</a>
+        <a className="nav-link" href="/suppliers"><Truck size={17} /> Suppliers & RFQs</a>
         <a className="nav-link" href="#controls"><ShieldCheck size={17} /> Controls</a>
         <a className="nav-link" href="/settings"><Settings size={17} /> Team & settings</a>
       </nav>
@@ -34,7 +34,7 @@ export function DashboardPage() {
         <p>Welcome, {user.name.split(" ")[0]}. Your organization workspace is ready for governed procurement operations.</p>
         <button className="welcome-link welcome-action" onClick={() => void signOutAll()}>Sign out all sessions <ArrowUpRight size={16} /></button>
       </div><div className="welcome-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="orbit-core"><Boxes size={42} /></div><div className="orbit-node node-one"><ClipboardCheck size={18} /></div><div className="orbit-node node-two"><Truck size={18} /></div><div className="orbit-node node-three"><ShieldCheck size={18} /></div></div></section>
-      <section className="section-heading" id="capabilities"><div><span className="eyebrow">PLATFORM FOUNDATION</span><h2>One connected procurement lifecycle</h2></div><span className="phase-pill">Phase 03 · Requisitions & approvals</span></section>
+      <section className="section-heading" id="capabilities"><div><span className="eyebrow">PLATFORM FOUNDATION</span><h2>One connected procurement lifecycle</h2></div><span className="phase-pill">Phase 05 · Supplier sourcing</span></section>
       <section className="capability-grid">{capabilities.map(({ icon: Icon, title, description }) => <article className="capability-card" key={title}><span className="capability-icon"><Icon size={20} /></span><h3>{title}</h3><p>{description}</p><span className="card-arrow"><ArrowUpRight size={16} /></span></article>)}</section>
       <footer className="footer-note"><span>PROCURAOS</span><span>Signed in as {user.email} · {organization.slug}</span></footer>
     </section>
