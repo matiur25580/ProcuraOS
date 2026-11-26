@@ -13,7 +13,7 @@ type Requisition = {
   currentApproverId?: string | null; budgetStatus: string; approvals: Approval[]; createdAt: string;
   items: { description: string; quantity: number; unit: string; unitPriceMinor: number }[];
 };
-type Budget = { costCenter: string; fiscalYear: number; currency: string; limitMinor: number };
+type Budget = { costCenter: string; fiscalYear: number; currency: string; limitMinor: number; committedMinor?: number };
 const money = (minor: number, currency: string) => new Intl.NumberFormat(undefined, { style: "currency", currency }).format(minor / 100);
 const date = (value: string) => new Date(value).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
@@ -150,7 +150,7 @@ export function RequisitionsPage() {
           <label>Annual limit<input required type="number" min="0" step="0.01" value={budgetLimit} onChange={(e) => setBudgetLimit(e.target.value)} placeholder="0.00" /></label>
           <button className="req-secondary" disabled={saving}>Save budget</button>
         </form>
-        {budgets.length > 0 && <div className="req-budget-list">{budgets.map((budget) => <span key={budget.costCenter + budget.fiscalYear}>{budget.costCenter} · {budget.fiscalYear}: <strong>{money(budget.limitMinor, budget.currency)}</strong></span>)}</div>}
+        {budgets.length > 0 && <div className="req-budget-list">{budgets.map((budget) => <span key={budget.costCenter + budget.fiscalYear}>{budget.costCenter} · {budget.fiscalYear}: <strong>{money(budget.committedMinor ?? 0, budget.currency)} / {money(budget.limitMinor, budget.currency)}</strong></span>)}</div>}
       </section>}
       <section className="req-list-heading"><div><span className="req-eyebrow">WORK QUEUE</span><h2>Requisition register</h2></div><span>{records.length} records · newest first</span></section>
       {loading ? <div className="req-loading">Loading organization requisitions…</div> : records.length === 0 ? <div className="req-panel req-empty"><ClipboardList size={25} /><strong>No requisitions yet</strong><span>Create the first purchase request to start an approval workflow.</span></div> :
