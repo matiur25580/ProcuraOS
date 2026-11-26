@@ -6,6 +6,7 @@ import pinoHttpModule from "pino-http";
 import { env } from "./config/env.js";
 import { getDatabaseStatus } from "./database/connection.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { organizationRouter } from "./modules/organization/organization.routes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { notFoundHandler } from "./middleware/not-found.js";
 
@@ -37,5 +38,6 @@ app.get(`${env.API_PREFIX}/ready`, (_req, res) => {
 });
 
 app.use(`${env.API_PREFIX}/auth`, authRouter);
+app.use(`${env.API_PREFIX}/organization`, organizationRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
