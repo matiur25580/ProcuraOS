@@ -68,7 +68,7 @@ export function OrganizationAdminPage() {
         method: "POST", body: JSON.stringify({ email, role: inviteRole }),
       });
       const url = new URL("/accept-invite", window.location.origin);
-      url.searchParams.set("token", result.invitation.invitationToken);
+      url.hash = new URLSearchParams({ token: result.invitation.invitationToken }).toString();
       setInviteUrl(url.toString()); setEmail("");
       setNotice("Invitation created. Copy the secure link and share it with the invited person.");
       await load();
