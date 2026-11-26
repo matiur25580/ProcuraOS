@@ -3,6 +3,7 @@ import express from "express";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
 import { env } from "./config/env.js";
+import { getDatabaseStatus } from "./database/connection.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { notFoundHandler } from "./middleware/not-found.js";
 
@@ -19,6 +20,15 @@ app.get(`${env.API_PREFIX}/health`, (_req, res) => {
   res.status(200).json({
     success: true,
     data: { status: "ok", service: "procuraos-api", timestamp: new Date().toISOString() },
+  });
+});
+
+app.get(`${env.API_PREFIX}/ready`, (_req, res) => {
+  const database = getDatabaseStatus();
+  const ready = database === "connected";
+  res.status(ready ? 200 : 503).json({
+    success: ready,
+    data: { status: ready ? "ready" : "not-ready", database },
   });
 });
 
