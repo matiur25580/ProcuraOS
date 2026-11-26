@@ -77,6 +77,6 @@ export async function listSessionsController(req: Request, res: Response) {
   res.status(200).json({ success: true, data: { sessions } });
 }
 export async function revokeSessionController(req: Request, res: Response) {
-  await revokeSession(req.auth!.userId, req.auth!.organizationId, req.params.sessionId);
+  await revokeSession(req.auth!.userId, req.auth!.organizationId, String(req.params.sessionId ?? ""));
   res.status(200).json({ success: true, data: { message: "Session revoked" } });
 }
