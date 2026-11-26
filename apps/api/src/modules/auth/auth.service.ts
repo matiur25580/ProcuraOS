@@ -43,7 +43,7 @@ async function issueSession(userId: string, organizationId: string, membershipId
     ...(metadata.ipAddress ? { ipAddress: metadata.ipAddress } : {}),
   });
   return {
-    accessToken: signAccessToken({ sub: userId, org: organizationId, membership: membershipId }),
+    accessToken: signAccessToken({ sub: userId, org: organizationId, membership: membershipId, sid: familyId }),
     refreshToken,
   };
 }
