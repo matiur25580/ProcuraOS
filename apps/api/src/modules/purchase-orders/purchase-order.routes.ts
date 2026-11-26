@@ -1,0 +1,14 @@
+import { Router } from "express";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requirePermission } from "../../middleware/authorize.js";
+import { validateBody } from "../../middleware/validate.js";
+import { approvePurchaseOrderController, createPurchaseOrderController, issuePurchaseOrderController, listPurchaseOrdersController, receiveGoodsController, revisePurchaseOrderController } from "./purchase-order.controller.js";
+import { amendPurchaseOrderSchema, createPurchaseOrderSchema, receiveGoodsSchema } from "./purchase-order.schemas.js";
+export const purchaseOrderRouter = Router();
+purchaseOrderRouter.use(authenticate);
+purchaseOrderRouter.get("/", requirePermission("procurement:read"), listPurchaseOrdersController);
+purchaseOrderRouter.post("/", requirePermission("procurement:write"), validateBody(createPurchaseOrderSchema), createPurchaseOrderController);
+purchaseOrderRouter.post("/:purchaseOrderId/approve", requirePermission("finance:approve"), approvePurchaseOrderController);
+purchaseOrderRouter.post("/:purchaseOrderId/issue", requirePermission("procurement:write"), issuePurchaseOrderController);
+purchaseOrderRouter.post("/:purchaseOrderId/receipts", requirePermission("procurement:write"), validateBody(receiveGoodsSchema), receiveGoodsController);
+purchaseOrderRouter.post("/:purchaseOrderId/revisions", requirePermission("procurement:write"), validateBody(amendPurchaseOrderSchema), revisePurchaseOrderController);
