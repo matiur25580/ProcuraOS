@@ -219,15 +219,12 @@ export async function acceptInvitation(
   );
   if (claimed.modifiedCount !== 1) throw new OrganizationError("Invitation has already been used", 409);
 
-  let membership;
-  try {
-    membership = await Membership.create({
-      userId: actorUserId, organizationId: invitation.organizationId, role: invitation.role,
-    });
-  } catch (error) {
+  const membership = await Membership.create({
+    userId: actorUserId, organizationId: invitation.organizationId, role: invitation.role,
+  }).catch(async (error: unknown) => {
     await Invitation.updateOne({ _id: invitation._id, status: "accepted" }, { $set: { status: "revoked", revokedAt: new Date() } });
     throw error;
-  }
+  });
   await audit({
     organizationId: invitation.organizationId.toString(), actorUserId,
     action: "invitation.accepted", targetType: "membership", targetId: membership.id,
