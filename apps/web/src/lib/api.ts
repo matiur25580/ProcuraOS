@@ -1,5 +1,6 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000/api/v1";
 let accessToken: string | null = null;
+let refreshInFlight: Promise<string> | null = null;
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
@@ -23,15 +24,17 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return payload.data as T;
 }
 
-export async function refreshAccessToken(): Promise<string> {
-  const response = await fetch(`${API_BASE}/auth/refresh`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-  });
-  const payload = await parseResponse<{ accessToken: string }>(response);
-  setAccessToken(payload.accessToken);
-  return payload.accessToken;
+export function refreshAccessToken(): Promise<string> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+    });
+    const payload = await parseResponse<{ accessToken: string }>(response);
+    setAccessToken(payload.accessToken);
+    return payload.accessToken;
+  })();
+  return refreshInFlight.finally(() => { refreshInFlight = null; });
 }
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
