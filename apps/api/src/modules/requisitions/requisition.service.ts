@@ -38,6 +38,9 @@ async function validateApprovers(organizationId: string, requesterId: string, ap
     organizationId, userId: { $in: unique }, status: "active",
   }).select("userId role").lean();
   if (memberships.length !== unique.length) throw new RequisitionError("Every approver must be an active member of this organization", 400);
+  if (memberships.some((member) => !["owner", "admin", "procurement_manager", "finance_manager"].includes(member.role))) {
+    throw new RequisitionError("Approval steps must be assigned to an organization owner, administrator, procurement manager or finance manager", 400);
+  }
   const users = await User.find({ _id: { $in: unique }, status: "active" }).select("_id").lean();
   if (users.length !== unique.length) throw new RequisitionError("An approver account is unavailable", 400);
 }
@@ -136,35 +139,43 @@ export async function updateRequisition(organizationId: string, requesterId: str
 
 export async function submitRequisition(organizationId: string, requesterId: string, requisitionId: string, meta: AuditMeta) {
   if (!validId(requisitionId)) throw new RequisitionError("Invalid requisition identifier", 400);
-  const requisition = await Requisition.findOne({ _id: requisitionId, organizationId, requesterId });
-  if (!requisition) throw new RequisitionError("Requisition was not found", 404);
-  if (requisition.status !== "draft") throw new RequisitionError("Only draft requisitions can be submitted", 409);
+  const requisition = await Requisition.findOne({ _id: requisitionId, organizationId, requesterId, status: "draft" });
+  if (!requisition) throw new RequisitionError("Only your own draft requisitions can be submitted", 404);
   const approverIds = requisition.approverIds.map((id) => id.toString());
   await validateApprovers(organizationId, requesterId, approverIds);
 
   const fiscalYear = requisition.neededBy.getUTCFullYear();
-  const budget = await Budget.findOne({
-    organizationId, costCenter: requisition.costCenter, fiscalYear, active: true,
-  }).lean();
-  let budgetStatus: "within_budget" | "over_budget" | "unconfigured" = "unconfigured";
+  const budget = await Budget.findOne({ organizationId, costCenter: requisition.costCenter, fiscalYear, active: true }).lean();
+  let budgetStatus: "within_budget" | "unconfigured" = "unconfigured";
+  let budgetId: Types.ObjectId | null = null;
   if (budget) {
     if (budget.currency !== requisition.currency) throw new RequisitionError("Requisition currency does not match the configured cost-centre budget", 409);
-    const committed = await Requisition.aggregate<{ total: number }>([
-      { $match: { organizationId: new Types.ObjectId(organizationId), costCenter: requisition.costCenter, currency: requisition.currency, status: { $in: ["pending_approval", "approved"] }, _id: { $ne: requisition._id }, neededBy: { $gte: new Date(Date.UTC(fiscalYear, 0, 1)), $lt: new Date(Date.UTC(fiscalYear + 1, 0, 1)) } } },
-      { $group: { _id: null, total: { $sum: "$totalMinor" } } },
-    ]);
-    budgetStatus = (Number(committed[0]?.total ?? 0) + requisition.totalMinor) <= budget.limitMinor ? "within_budget" : "over_budget";
-    if (budgetStatus === "over_budget") throw new RequisitionError("This requisition would exceed the configured cost-centre budget", 409);
+    const reservation = await Budget.findOneAndUpdate(
+      {
+        _id: budget._id, organizationId, active: true, currency: requisition.currency,
+        $expr: { $lte: [{ $add: [{ $ifNull: ["$committedMinor", 0] }, requisition.totalMinor] }, "$limitMinor"] },
+      },
+      { $inc: { committedMinor: requisition.totalMinor } },
+      { new: true },
+    );
+    if (!reservation) throw new RequisitionError("This requisition would exceed the configured cost-centre budget", 409);
+    budgetStatus = "within_budget";
+    budgetId = reservation._id;
   }
 
-  requisition.approvals = approverIds.map((approverId, index) => ({
-    approverId: new Types.ObjectId(approverId), level: index + 1, status: "pending",
-  })) as typeof requisition.approvals;
-  requisition.currentApproverId = new Types.ObjectId(approverIds[0]);
-  requisition.status = "pending_approval";
-  requisition.submittedAt = new Date();
-  requisition.budgetStatus = budgetStatus;
-  await requisition.save();
+  const now = new Date();
+  const result = await Requisition.updateOne(
+    { _id: requisition._id, organizationId, requesterId, status: "draft" },
+    { $set: {
+      approvals: approverIds.map((approverId, index) => ({ approverId: new Types.ObjectId(approverId), level: index + 1, status: "pending" })),
+      currentApproverId: new Types.ObjectId(approverIds[0]), status: "pending_approval",
+      submittedAt: now, budgetStatus, budgetId,
+    } },
+  );
+  if (result.modifiedCount !== 1) {
+    if (budgetId) await Budget.updateOne({ _id: budgetId, organizationId }, { $inc: { committedMinor: -requisition.totalMinor } });
+    throw new RequisitionError("This draft was already submitted; refresh and try again", 409);
+  }
   await audit(organizationId, requesterId, "requisition.submitted", requisition.id, { totalMinor: requisition.totalMinor, currency: requisition.currency, budgetStatus, approvalLevels: approverIds.length }, meta);
   return getRequisition(organizationId, requisition.id);
 }
@@ -189,6 +200,9 @@ export async function decideRequisition(organizationId: string, approverId: stri
     approvals: { $elemMatch: { approverId: new Types.ObjectId(approverId), status: "pending" } },
   }, { $set: update });
   if (result.modifiedCount !== 1) throw new RequisitionError("This approval was already processed; refresh and try again", 409);
+  if (decision === "reject" && requisition.budgetId) {
+    await Budget.updateOne({ _id: requisition.budgetId, organizationId }, { $inc: { committedMinor: -requisition.totalMinor } });
+  }
   const action = decision === "approve" ? "requisition.approved_step" : "requisition.rejected";
   await audit(organizationId, approverId, action, requisition.id, { comment, level: currentIndex + 1, final: decision === "reject" || !nextApproverId }, meta);
   return getRequisition(organizationId, requisition.id);
@@ -211,6 +225,11 @@ export async function listBudgets(organizationId: string) {
 }
 
 export async function upsertBudget(organizationId: string, actorUserId: string, costCenter: string, input: { fiscalYear: number; currency: string; limitMinor: number }, meta: AuditMeta) {
+  if (costCenter.trim().length < 2 || costCenter.trim().length > 80) throw new RequisitionError("Cost centre must contain 2–80 characters", 400);
+  const existing = await Budget.findOne({ organizationId, costCenter, fiscalYear: input.fiscalYear }).select("committedMinor").lean();
+  if (existing && input.limitMinor < (existing.committedMinor ?? 0)) {
+    throw new RequisitionError("Budget limit cannot be lower than already committed requisitions", 409);
+  }
   const budget = await Budget.findOneAndUpdate(
     { organizationId, costCenter, fiscalYear: input.fiscalYear },
     { $set: { currency: input.currency.toUpperCase(), limitMinor: input.limitMinor, active: true } },
