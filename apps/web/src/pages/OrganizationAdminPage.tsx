@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Building2, ClipboardList, Copy, MailPlus, RefreshCw, Shield, Trash2, Users } from "lucide-react";
 import { Link } from "react-router-dom";
-import { ApiError, apiRequest } from "../lib/api";
+import { apiRequest } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 
 type Member = { membershipId: string; userId: string; name: string; email: string; role: string; status: "active" | "suspended"; accountStatus: string; joinedAt: string };
@@ -27,9 +27,11 @@ export function OrganizationAdminPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [tab, setTab] = useState<"members" | "audit" | "security">(canReadMembers ? "members" : canReadAudit ? "audit" : "security");
   const canManage = role === "owner" || role === "admin";
+  const canReadMembers = canManage || role === "procurement_manager";
+  const canReadAudit = ["owner", "admin", "procurement_manager", "finance_manager", "auditor"].includes(role);
   const canEditOrganization = role === "owner" || role === "admin";
+  const [tab, setTab] = useState<"members" | "audit" | "security">(canReadMembers ? "members" : canReadAudit ? "audit" : "security");
 
   async function load() {
     setBusy(true); setError("");
