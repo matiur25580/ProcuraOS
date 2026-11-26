@@ -4,7 +4,7 @@
 
 ProcuraOS is a multi-tenant procurement operations platform designed to connect purchase requisitions, supplier sourcing, approvals, purchase orders, goods receiving and invoice controls in one auditable workflow.
 
-> **Project status:** Foundation scaffold — active development. Features described in the roadmap are planned unless explicitly marked implemented.
+> **Project status:** Active development. Implemented milestones are identified below; remaining roadmap items are planned.
 
 ## Product goals
 
@@ -17,12 +17,12 @@ ProcuraOS is a multi-tenant procurement operations platform designed to connect 
 
 ## Technology
 
-- **Frontend:** React, TypeScript, Vite, Tailwind CSS
+- **Frontend:** React, TypeScript, Vite
 - **Backend:** Node.js, Express, TypeScript
 - **Database:** MongoDB, Mongoose
-- **Async / real-time (planned):** Redis, BullMQ, Socket.IO
-- **Quality:** Vitest, Supertest, Playwright, ESLint, Prettier
-- **Deployment:** Docker, GitHub Actions
+- **Async / real-time:** Redis, BullMQ and Socket.IO (planned)
+- **Quality:** Vitest, Supertest, Playwright, GitHub Actions
+- **Deployment:** Docker and GitHub Actions
 
 ## Repository structure
 
@@ -33,9 +33,8 @@ ProcuraOS/
 │   └── web/                 # React application
 ├── docs/                    # Architecture and product documentation
 ├── .env.example
-├── .gitignore
-├── package.json             # npm workspace root
-└── README.md
+├── docker-compose.yml
+└── package.json             # npm workspaces
 ```
 
 ## Getting started
@@ -49,52 +48,48 @@ ProcuraOS/
 ### Setup
 
 1. Clone the repository.
-2. Copy `.env.example` to `.env` and set the required values.
-3. Start local MongoDB with `docker compose up -d mongodb` (or configure an Atlas connection).
-4. Install workspace dependencies with `npm install`.
-5. Start the API and web app with `npm run dev`.
+2. Copy .env.example to .env and set the required values.
+3. Start local MongoDB with docker compose up -d mongodb (or configure an Atlas connection).
+4. Install dependencies with npm install.
+5. Start the API and web app with npm run dev.
 
-The API health endpoint is available at `http://localhost:4000/api/v1/health`; the web app runs at `http://localhost:5173`.
+The API health endpoint is available at http://localhost:4000/api/v1/health; the web app runs at http://localhost:5173.
 
-## Environment variables
+## Implemented milestones
 
-See `.env.example`. Never commit real credentials, private keys, production URLs containing secrets, or customer data.
+- [x] Monorepo, API/web foundation, MongoDB connection and CI.
+- [x] Authentication, refresh-session rotation, organizations, tenant-aware RBAC.
+- [x] Organization administration, invitations, membership management and audit events.
+- [x] Purchase requisition drafts, line items, sequential approvals, rejection reasons and cost-centre budget checks.
+
+The requisition workspace is available at /requisitions. See docs/requisition-approval-workflow.md for API contracts, budget rules and known limitations.
 
 ## Engineering principles
 
 - Enforce tenant scope and authorization in the API; never trust client-supplied organization IDs.
 - Validate all external input at system boundaries.
 - Keep business rules in domain/application services, not route handlers.
-- Use decimal-safe arithmetic for money.
+- Store money as integer minor units and avoid floating-point persistence.
 - Make state-changing operations auditable and concurrency-safe.
 - Design background jobs to be retryable and idempotent.
 - Treat AI output as untrusted input and require human approval for consequential actions.
 - Test critical business rules and tenant-isolation boundaries.
 
-## Authentication and tenant security
+## Validation
 
-The current authentication implementation and API contract are documented in [`docs/authentication-and-tenancy.md`](docs/authentication-and-tenancy.md). It includes bcrypt password hashing, short-lived JWT access tokens, rotating hashed refresh sessions, organization memberships, tenant-aware authorization and role permissions.
-
-After configuring `.env`, run `npm run dev`. Run `npm run typecheck`, `npm run test` and `npm run build` to validate the workspace.
-
-## Organization administration
-
-The next milestone adds tenant-scoped organization settings, member role and status management, seven-day invitation links, audit events and per-user session revocation. See [docs/organization-administration.md](docs/organization-administration.md) for the API contract, invitation delivery details and production follow-ups.
-
-The organization settings screen is available at `/settings` after signing in. An administrator can create a one-time invitation link and share it with the intended email recipient. The recipient must sign in with that same email before accepting the invitation.
+Run npm run typecheck, npm run test and npm run build from the repository root. GitHub Actions runs the same checks for pushed commits.
 
 ## Roadmap
 
 - [x] Initial monorepo and application scaffolding
-- [ ] API configuration, health checks and centralized error handling
-- [ ] MongoDB connection and persistence layer
-- [ ] Authentication, organizations and tenant-aware authorization
-- [ ] Requisitions, budgets and approval workflows
+- [x] Authentication, organizations and tenant-aware authorization
+- [x] Organization administration
+- [x] Requisitions, budgets and approval workflows
 - [ ] Supplier onboarding, RFQs and quotation evaluation
 - [ ] Purchase orders, goods receipts and invoice matching
-- [ ] Notifications, audit events and analytics
+- [ ] Notifications, audit analytics and operational reporting
 - [ ] AI-assisted procurement insights with human oversight
-- [ ] Automated tests, observability and production deployment
+- [ ] Integration testing, observability and production deployment
 
 ## License
 
