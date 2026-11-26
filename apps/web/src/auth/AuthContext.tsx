@@ -9,7 +9,7 @@ interface AuthContextValue extends SessionData {
   signIn(email: string, password: string): Promise<void>;
   signUp(name: string, email: string, password: string, organizationName: string): Promise<void>;
   signOut(): Promise<void>;
-  signOutAll(): Promise<void>;
+  signOutAll(): Promise<void>;\n  switchOrganization(organizationId: string): Promise<void>;
 }
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -55,14 +55,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     finally { setAccessToken(null); setSession(null); }
   }
 
-  async function signOutAll() {
+  async function switchOrganization(organizationId: string) {\n    const result = await apiRequest<{ organization: SessionOrganization; role: string; accessToken: string }>("/auth/switch-organization", {\n      method: "POST", body: JSON.stringify({ organizationId }),\n    }, false);\n    setAccessToken(result.accessToken);\n    setSession(current => current ? { ...current, organization: result.organization, role: result.role } : null);\n  }\n\n  async function signOutAll() {
     try { await apiRequest("/auth/logout-all", { method: "POST" }, false); }
     finally { setAccessToken(null); setSession(null); }
   }
 
   const value = useMemo(() => ({
     ...(session ?? { user: { id: "", name: "", email: "" }, organization: { id: "", name: "", slug: "" }, role: "" }),
-    loading, signIn, signUp, signOut, signOutAll,
+    loading, signIn, signUp, signOut, signOutAll, switchOrganization,
   }), [session, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
