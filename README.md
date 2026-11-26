@@ -71,6 +71,12 @@ See `.env.example`. Never commit real credentials, private keys, production URLs
 - Treat AI output as untrusted input and require human approval for consequential actions.
 - Test critical business rules and tenant-isolation boundaries.
 
+## Authentication and tenant security
+
+The current authentication implementation and API contract are documented in [`docs/authentication-and-tenancy.md`](docs/authentication-and-tenancy.md). It includes bcrypt password hashing, short-lived JWT access tokens, rotating hashed refresh sessions, organization memberships, tenant-aware authorization and role permissions.
+
+After configuring `.env`, run `npm run dev`. Run `npm run typecheck`, `npm run test` and `npm run build` to validate the workspace.
+
 ## Roadmap
 
 - [x] Initial monorepo and application scaffolding
