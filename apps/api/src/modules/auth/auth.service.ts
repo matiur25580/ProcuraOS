@@ -122,7 +122,7 @@ export async function rotateRefreshToken(token: string, metadata: { userAgent?: 
     throw new AuthError("Refresh token was already used; sign in again", 401);
   }
   return {
-    accessToken: signAccessToken({ sub: user.id, org: organization.id, membership: membership.id }),
+    accessToken: signAccessToken({ sub: user.id, org: organization.id, membership: membership.id, sid: existing.familyId }),
     refreshToken: nextToken,
   };
 }
