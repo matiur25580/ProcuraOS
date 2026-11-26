@@ -144,7 +144,7 @@ export async function createInvitation(
   if (existingUser && await Membership.exists({ userId: existingUser._id, organizationId })) {
     throw new OrganizationError("This user is already a member of the organization", 409);
   }
-  const pending = await Invitation.findOne({ organizationId, email, status: "pending", expiresAt: { $gt: new Date() } });
+  await Invitation.updateMany({ organizationId, email, status: "pending", expiresAt: { $lte: new Date() } }, { $set: { status: "revoked", revokedAt: new Date() } });\n  const pending = await Invitation.findOne({ organizationId, email, status: "pending", expiresAt: { $gt: new Date() } });
   if (pending) throw new OrganizationError("A pending invitation already exists for this email", 409);
 
   const token = randomBytes(32).toString("base64url");
