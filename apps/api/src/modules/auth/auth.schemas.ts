@@ -12,9 +12,9 @@ export const loginSchema = z.object({
   password: z.string().min(1).max(128),
 }).strict();
 
-export const createOrganizationSchema = z.object({
-  name: z.string().trim().min(2).max(140),
-}).strict();
+export const createOrganizationSchema = z.object({ name: z.string().trim().min(2).max(140) }).strict();
+export const switchOrganizationSchema = z.object({ organizationId: z.string().regex(/^[a-f\d]{24}$/i) }).strict();
+export const updateProfileSchema = z.object({ name: z.string().trim().min(2).max(100) }).strict();
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
