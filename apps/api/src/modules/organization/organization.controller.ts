@@ -21,11 +21,11 @@ export async function listMembersController(req: Request, res: Response) {
   res.status(200).json({ success: true, data: { members } });
 }
 export async function updateMemberController(req: Request, res: Response) {
-  const member = await updateMember(req.auth!.organizationId, req.auth!.userId, req.params.membershipId, req.body, metadata(req));
+  const member = await updateMember(req.auth!.organizationId, req.auth!.userId, String(req.params.membershipId ?? ""), req.body, metadata(req));
   res.status(200).json({ success: true, data: { member } });
 }
 export async function removeMemberController(req: Request, res: Response) {
-  await removeMember(req.auth!.organizationId, req.auth!.userId, req.params.membershipId, metadata(req));
+  await removeMember(req.auth!.organizationId, req.auth!.userId, String(req.params.membershipId ?? ""), metadata(req));
   res.status(200).json({ success: true, data: { message: "Organization member removed" } });
 }
 export async function createInvitationController(req: Request, res: Response) {
@@ -37,7 +37,7 @@ export async function listInvitationsController(req: Request, res: Response) {
   res.status(200).json({ success: true, data: { invitations } });
 }
 export async function revokeInvitationController(req: Request, res: Response) {
-  await revokeInvitation(req.auth!.organizationId, req.auth!.userId, req.params.invitationId, metadata(req));
+  await revokeInvitation(req.auth!.organizationId, req.auth!.userId, String(req.params.invitationId ?? ""), metadata(req));
   res.status(200).json({ success: true, data: { message: "Invitation revoked" } });
 }
 export async function acceptInvitationController(req: Request, res: Response) {
