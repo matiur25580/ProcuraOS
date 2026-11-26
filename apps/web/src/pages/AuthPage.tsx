@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { ArrowRight, Boxes, LockKeyhole } from "lucide-react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 
@@ -8,6 +8,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
   const isRegister = mode === "register";
   const { user, signIn, signUp } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [name, setName] = useState("");
   const [organizationName, setOrganizationName] = useState("");
   const [email, setEmail] = useState("");
@@ -24,7 +25,8 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
     try {
       if (isRegister) await signUp(name, email, password, organizationName);
       else await signIn(email, password);
-      navigate("/", { replace: true });
+      const destination = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
+      navigate(destination?.pathname ? `${destination.pathname}${destination.search ?? ""}` : "/", { replace: true });
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Unable to complete your request. Please try again.");
     } finally {
