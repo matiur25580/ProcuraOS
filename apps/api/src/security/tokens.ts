@@ -12,7 +12,7 @@ export interface AccessClaims extends JwtPayload {
 export function signAccessToken(claims: AccessClaims): string {
   return jwt.sign(claims, env.JWT_ACCESS_SECRET, {
     algorithm: "HS256",
-    expiresIn: env.ACCESS_TOKEN_TTL as SignOptions["expiresIn"],
+    expiresIn: env.ACCESS_TOKEN_TTL as NonNullable<SignOptions["expiresIn"]>,
     issuer: "procuraos-api",
     audience: "procuraos-web",
   });
