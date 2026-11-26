@@ -219,24 +219,25 @@ export async function acceptInvitation(
   );
   if (claimed.modifiedCount !== 1) throw new OrganizationError("Invitation has already been used", 409);
 
+  let membership;
   try {
-    const membership = await Membership.create({
+    membership = await Membership.create({
       userId: actorUserId, organizationId: invitation.organizationId, role: invitation.role,
     });
-    await audit({
-      organizationId: invitation.organizationId.toString(), actorUserId,
-      action: "invitation.accepted", targetType: "membership", targetId: membership.id,
-      metadata: { invitationId: invitation.id, role: membership.role }, ...metadata,
-    });
-    const organization = await Organization.findById(invitation.organizationId).select("name slug");
-    return {
-      membershipId: membership.id, role: membership.role,
-      organization: organization ? { id: organization.id, name: organization.name, slug: organization.slug } : null,
-    };
   } catch (error) {
-    await Invitation.updateOne({ _id: invitation._id, status: "accepted" }, { $set: { status: "pending", acceptedAt: null } });
+    await Invitation.updateOne({ _id: invitation._id, status: "accepted" }, { $set: { status: "revoked", revokedAt: new Date() } });
     throw error;
   }
+  await audit({
+    organizationId: invitation.organizationId.toString(), actorUserId,
+    action: "invitation.accepted", targetType: "membership", targetId: membership.id,
+    metadata: { invitationId: invitation.id, role: membership.role }, ...metadata,
+  });
+  const organization = await Organization.findById(invitation.organizationId).select("name slug");
+  return {
+    membershipId: membership.id, role: membership.role,
+    organization: organization ? { id: organization.id, name: organization.name, slug: organization.slug } : null,
+  };
 }
 
 export async function listAuditEvents(organizationId: string, limit: number) {
