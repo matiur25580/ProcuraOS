@@ -3,7 +3,7 @@ import { authenticate } from "../../middleware/authenticate.js";
 import { requirePermission } from "../../middleware/authorize.js";
 import { validateBody } from "../../middleware/validate.js";
 import {
-  acceptInvitationController, createInvitationController, listAuditEventsController, listInvitationsController,
+  acceptInvitationController, createInvitationController, getOrganizationController, listAuditEventsController, listInvitationsController,
   listMembersController, removeMemberController, revokeInvitationController, updateMemberController,
   updateOrganizationController,
 } from "./organization.controller.js";
@@ -14,7 +14,7 @@ import {
 export const organizationRouter = Router();
 organizationRouter.use(authenticate);
 
-organizationRouter.patch("/", requirePermission("organization:update"), validateBody(updateOrganizationSchema), updateOrganizationController);
+organizationRouter.get("/", requirePermission("organization:read"), getOrganizationController);\norganizationRouter.patch("/", requirePermission("organization:update"), validateBody(updateOrganizationSchema), updateOrganizationController);
 organizationRouter.get("/members", requirePermission("members:read"), listMembersController);
 organizationRouter.patch("/members/:membershipId", requirePermission("members:manage"), validateBody(updateMemberSchema), updateMemberController);
 organizationRouter.delete("/members/:membershipId", requirePermission("members:manage"), removeMemberController);
