@@ -185,6 +185,19 @@ describe("supplier invoice integration", () => {
     })).toBe(2);
   });
 
+  it("serializes concurrent submissions so cumulative billing cannot exceed the order", async () => {
+    const fixture = await createFixture("concurrent");
+    const submit = (invoiceNumber: string) => submitSupplierInvoice(fixture.organization.id, fixture.user.id, invoiceInput(fixture.order._id, fixture.itemId, invoiceNumber, {
+      items: [{ purchaseOrderItemId: fixture.itemId.toString(), quantity: 6, unitPriceMinor: 4500 }],
+    }), metadata);
+    const invoices = await Promise.all([submit("INV-CONCURRENT-A"), submit("INV-CONCURRENT-B")]);
+    expect(invoices.filter((invoice) => invoice.status === "matched")).toHaveLength(1);
+    expect(invoices.filter((invoice) => invoice.status === "needs_review")).toHaveLength(1);
+    const review = invoices.find((invoice) => invoice.status === "needs_review");
+    expect(review?.matchFindings.map((finding) => finding.code)).toContain("DUPLICATE_BILLING_QUANTITY");
+    expect(await SupplierInvoice.countDocuments({ organizationId: fixture.organization._id })).toBe(2);
+  });
+
   it("does not allow one tenant to approve another tenant's invoice", async () => {
     const owner = await createFixture("owner");
     const other = await createFixture("other");

@@ -13,6 +13,7 @@ const purchaseOrderSchema = new Schema({
   quotationId: { type: Schema.Types.ObjectId, ref: "Quotation", required: true }, requisitionId: { type: Schema.Types.ObjectId, ref: "Requisition", default: null },
   currency: { type: String, required: true, uppercase: true, minlength: 3, maxlength: 3 },
   items: { type: [orderItemSchema], required: true, validate: [(items: unknown[]) => items.length > 0 && items.length <= 30, "A purchase order must contain 1–30 items"] },
+  invoiceSequence: { type: Number, required: true, min: 0, default: 0 },
   totalMinor: { type: Number, required: true, min: 0 }, status: { type: String, enum: ["pending_approval", "approved", "issued", "partially_received", "received", "cancelled"], default: "pending_approval", index: true },
   revision: { type: Number, required: true, default: 1 }, revisions: { type: [revisionSchema], default: [] }, receipts: { type: [receiptSchema], default: [] },
   approvedBy: { type: Schema.Types.ObjectId, ref: "User", default: null }, approvedAt: { type: Date, default: null },
