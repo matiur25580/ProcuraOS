@@ -66,6 +66,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
             {error && <div className="auth-error" role="alert">{error}</div>}
             <button className="auth-submit" type="submit" disabled={busy}>{busy ? "Please wait…" : isRegister ? "Create secure workspace" : "Sign in"} <ArrowRight size={16} /></button>
           </form>
+          {!isRegister && <p className="auth-switch"><Link to="/forgot-password">Forgot your password?</Link></p>}
           <p className="auth-switch">{isRegister ? "Already have an account?" : "New to ProcuraOS?"} <Link to={isRegister ? "/login" : "/register"}>{isRegister ? "Sign in" : "Create an account"}</Link></p>
         </div>
       </section>
