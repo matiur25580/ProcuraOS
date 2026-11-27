@@ -7,9 +7,11 @@
 - Access tokens are short-lived JWTs signed with HS256 and contain user, organization and membership identifiers.
 - Refresh tokens are cryptographically random opaque values. Only SHA-256 hashes are stored in MongoDB; the raw token is sent in an HTTP-only, SameSite=Strict cookie.
 - Refresh rotates the token, invalidates the previous record and revokes the token family when reuse is detected.
+- Refresh lifetime is configured through `REFRESH_TOKEN_TTL` (for example, `7d`) and validated at startup.
 - Logout revokes the current refresh token; logout-all revokes all refresh sessions for the user.
+- Cookie-setting authentication endpoints validate the exact configured frontend Origin and reject cross-site Fetch Metadata requests.
 - Organization listing, creation and switching are membership-checked.
-- Profile read and display-name update endpoints are authenticated.
+- Profile read, display-name update and active-session management are available to authenticated users.
 
 ## Tenant isolation
 
@@ -37,20 +39,21 @@ Use `requirePermission("domain:action")` on each business route. Add new permiss
 | POST | `/api/v1/auth/logout-all` | Revoke all user refresh sessions |
 | GET | `/api/v1/auth/me` | Read current profile and organization |
 | PATCH | `/api/v1/auth/me` | Update display name |
+| GET | `/api/v1/auth/sessions` | List active sessions in the current organization |
+| DELETE | `/api/v1/auth/sessions/:sessionId` | Revoke a session family |
 | GET | `/api/v1/auth/organizations` | List active memberships |
 | POST | `/api/v1/auth/organizations` | Create another organization membership |
 | POST | `/api/v1/auth/switch-organization` | Switch to an organization the user belongs to |
 
 ## Local configuration
 
-Set `JWT_ACCESS_SECRET` to a cryptographically random secret of at least 32 characters. Configure `WEB_ORIGIN` to the exact trusted frontend origin. In production, serve over HTTPS so the refresh cookie is marked Secure. Never store access tokens in localStorage.
+Set `JWT_ACCESS_SECRET` to a cryptographically random secret of at least 32 characters. Configure `ACCESS_TOKEN_TTL` (default `15m`), `REFRESH_TOKEN_TTL` (default `7d`) and `WEB_ORIGIN` to the exact trusted frontend origin. In production, serve over HTTPS so the refresh cookie is marked Secure. Never store access tokens in localStorage.
 
 ## Security follow-ups before production
 
 - Add email verification, password reset, MFA and account recovery.
-- Add invite-based membership onboarding and administrator-managed role changes.
-- Add explicit CSRF tokens if cookie-authenticated state-changing endpoints expand beyond the current SameSite=Strict refresh/logout design.
 - Add a replica-set-backed transaction strategy for multi-document registration and organization creation.
 - Add a cross-tab refresh coordination strategy or carefully designed rotation grace policy.
-- Add audit events for authentication, session revocation, organization switching and membership changes.
+- Add audit events for authentication, session revocation and organization switching.
 - Add integration tests against a disposable MongoDB replica set and run dependency/security scanning.
+- Use a shared rate-limit store when deploying multiple API instances.

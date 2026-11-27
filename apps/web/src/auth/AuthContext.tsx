@@ -8,6 +8,7 @@ interface AuthContextValue extends SessionData {
   loading: boolean;
   signIn(email: string, password: string): Promise<void>;
   signUp(name: string, email: string, password: string, organizationName: string): Promise<void>;
+  updateProfile(name: string): Promise<void>;
   signOut(): Promise<void>;
   signOutAll(): Promise<void>;
   switchOrganization(organizationId: string): Promise<void>;
@@ -51,6 +52,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession({ user: result.user, organization: result.organization, role: result.role });
   }
 
+  async function updateProfile(name: string) {
+    const result = await apiRequest<{ user: SessionUser }>("/auth/me", {
+      method: "PATCH", body: JSON.stringify({ name }),
+    });
+    setSession(current => current ? { ...current, user: result.user } : null);
+  }
+
   async function signOut() {
     try { await apiRequest("/auth/logout", { method: "POST" }, false); }
     finally { setAccessToken(null); setSession(null); }
@@ -71,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     ...(session ?? { user: { id: "", name: "", email: "" }, organization: { id: "", name: "", slug: "" }, role: "" }),
-    loading, signIn, signUp, signOut, signOutAll, switchOrganization,
+    loading, signIn, signUp, updateProfile, signOut, signOutAll, switchOrganization,
   }), [session, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

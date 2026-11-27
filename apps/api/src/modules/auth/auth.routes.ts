@@ -1,6 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { authenticate } from "../../middleware/authenticate.js";
+import { requireTrustedOrigin } from "../../middleware/require-trusted-origin.js";
 import { validateBody } from "../../middleware/validate.js";
 import { createOrganizationController, listOrganizationsController, loginController, logoutAllController, logoutController, meController, refreshController, registerController, switchOrganizationController, updateProfileController, listSessionsController, revokeSessionController } from "./auth.controller.js";
 import { createOrganizationSchema, loginSchema, registerSchema, switchOrganizationSchema, updateProfileSchema } from "./auth.schemas.js";
@@ -11,10 +12,10 @@ const authLimiter = rateLimit({
   message: { success: false, error: { message: "Too many authentication attempts. Try again later." } },
 });
 
-authRouter.post("/register", authLimiter, validateBody(registerSchema), registerController);
-authRouter.post("/login", authLimiter, validateBody(loginSchema), loginController);
-authRouter.post("/refresh", authLimiter, refreshController);
-authRouter.post("/logout", logoutController);
+authRouter.post("/register", authLimiter, requireTrustedOrigin, validateBody(registerSchema), registerController);
+authRouter.post("/login", authLimiter, requireTrustedOrigin, validateBody(loginSchema), loginController);
+authRouter.post("/refresh", authLimiter, requireTrustedOrigin, refreshController);
+authRouter.post("/logout", requireTrustedOrigin, logoutController);
 authRouter.post("/logout-all", authenticate, logoutAllController);
 authRouter.get("/me", authenticate, meController);
 authRouter.patch("/me", authenticate, validateBody(updateProfileSchema), updateProfileController);

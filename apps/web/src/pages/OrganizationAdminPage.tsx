@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, Building2, ClipboardList, Copy, MailPlus, RefreshCw, Shield, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Building2, ClipboardList, Copy, MailPlus, RefreshCw, Shield, Trash2, UserRound, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { apiRequest } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
@@ -14,13 +14,14 @@ const roles = ["admin", "procurement_manager", "procurement_officer", "finance_m
 const roleLabel = (role: string) => role.replaceAll("_", " ");
 
 export function OrganizationAdminPage() {
-  const { organization: activeOrganization, role, user } = useAuth();
+  const { organization: activeOrganization, role, user, updateProfile } = useAuth();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [name, setName] = useState(activeOrganization.name);
+  const [profileName, setProfileName] = useState(user.name);
   const [email, setEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("procurement_officer");
   const [inviteUrl, setInviteUrl] = useState("");
@@ -31,7 +32,7 @@ export function OrganizationAdminPage() {
   const canReadMembers = canManage || role === "procurement_manager";
   const canReadAudit = ["owner", "admin", "procurement_manager", "finance_manager", "auditor"].includes(role);
   const canEditOrganization = role === "owner" || role === "admin";
-  const [tab, setTab] = useState<"members" | "audit" | "security">(canReadMembers ? "members" : canReadAudit ? "audit" : "security");
+  const [tab, setTab] = useState<"members" | "audit" | "security" | "profile">(canReadMembers ? "members" : canReadAudit ? "audit" : "security");
 
   async function load() {
     setBusy(true); setError("");
@@ -59,6 +60,14 @@ export function OrganizationAdminPage() {
       const result = await apiRequest<{ organization: Organization }>("/organization", { method: "PATCH", body: JSON.stringify({ name }) });
       setOrganization(result.organization); setNotice("Organization details saved.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save organization"); }
+  }
+
+  async function saveProfile(event: FormEvent) {
+    event.preventDefault(); setError(""); setNotice("");
+    try {
+      await updateProfile(profileName);
+      setNotice("Your profile has been updated.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to update your profile"); }
   }
 
   async function invite(event: FormEvent) {
@@ -130,6 +139,7 @@ export function OrganizationAdminPage() {
           {canReadMembers && <button className={tab === "members" ? "selected" : ""} onClick={() => setTab("members")}><Users size={16} /> Team & invitations</button>}
           {canReadAudit && <button className={tab === "audit" ? "selected" : ""} onClick={() => setTab("audit")}><ClipboardList size={16} /> Audit activity</button>}
           <button className={tab === "security" ? "selected" : ""} onClick={() => setTab("security")}><Shield size={16} /> My sessions</button>
+          <button className={tab === "profile" ? "selected" : ""} onClick={() => setTab("profile")}><UserRound size={16} /> My profile</button>
         </div>
         {tab === "members" && canReadMembers && <>
           {canManage && <form className="invite-panel" onSubmit={invite}>
@@ -147,6 +157,7 @@ export function OrganizationAdminPage() {
         </>}
         {tab === "audit" && canReadAudit && <section className="admin-panel"><div className="panel-title"><div><h2>Organization audit trail</h2><p>Recent governance events for this tenant.</p></div></div>{events.length ? <div className="activity-list">{events.map(item => <div className="activity-row" key={item.id}><span className="activity-dot" /><div><strong>{item.action.replaceAll(".", " ")}</strong><span>{item.actor?.name ?? "System"} · {item.targetType}</span></div><time>{new Date(item.createdAt).toLocaleString()}</time></div>)}</div> : <p className="empty-state">No audit events recorded yet.</p>}</section>}
         {tab === "security" && <section className="admin-panel"><div className="panel-title"><div><h2>Active sessions</h2><p>Sessions associated with your current organization.</p></div></div>{sessions.length ? <div className="session-list">{sessions.map(item => <div className="session-row" key={item.id}><div><strong>{item.userAgent}</strong><span>{item.ipAddress ?? "IP unavailable"} · started {new Date(item.createdAt).toLocaleString()}</span></div><div className="session-actions">{item.current ? <span className="current-session">Current session</span> : <button className="danger-text" onClick={() => void revokeSession(item.id)}>Revoke</button>}</div></div>)}</div> : <p className="empty-state">No active sessions found.</p>}</section>}
+        {tab === "profile" && <section className="admin-panel"><div className="panel-title"><div><h2>Personal profile</h2><p>Update the display name associated with your account.</p></div></div><form className="invite-fields" onSubmit={saveProfile}><label>Full name<input value={profileName} onChange={event => setProfileName(event.target.value)} minLength={2} maxLength={100} required /></label><label>Account email<input type="email" value={user.email} disabled /></label><button className="admin-primary" type="submit">Save profile</button></form></section>}
         <footer className="admin-footer">Organization data is scoped by your authenticated tenant membership. Current workspace: {activeOrganization.slug}.</footer>
       </section>
     </main>

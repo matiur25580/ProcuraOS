@@ -6,10 +6,11 @@ import { Organization } from "../../models/organization.model.js";
 import { RefreshSession } from "../../models/refresh-session.model.js";
 import { User } from "../../models/user.model.js";
 import { createRefreshToken, createSessionFamilyId, hashRefreshToken, signAccessToken } from "../../security/tokens.js";
+import { durationToMs } from "../../security/duration.js";
 import type { LoginInput, RegisterInput } from "./auth.schemas.js";
 
 const BCRYPT_ROUNDS = 12;
-const refreshLifetimeMs = 7 * 24 * 60 * 60 * 1000;
+const refreshLifetimeMs = durationToMs(env.REFRESH_TOKEN_TTL);
 
 export class AuthError extends Error {
   constructor(message: string, readonly statusCode = 400) {
