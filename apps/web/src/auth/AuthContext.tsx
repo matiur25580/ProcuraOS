@@ -6,7 +6,7 @@ export interface SessionOrganization { id: string; name: string; slug: string }
 interface SessionData { user: SessionUser; organization: SessionOrganization; role: string }
 interface AuthContextValue extends SessionData {
   loading: boolean;
-  signIn(email: string, password: string): Promise<void>;
+  signIn(email: string, password: string, otp?: string): Promise<void>;
   signUp(name: string, email: string, password: string, organizationName: string): Promise<void>;
   updateProfile(name: string): Promise<void>;
   signOut(): Promise<void>;
@@ -36,9 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { active = false; };
   }, []);
 
-  async function signIn(email: string, password: string) {
+  async function signIn(email: string, password: string, otp?: string) {
     const result = await apiRequest<SessionData & { accessToken: string }>("/auth/login", {
-      method: "POST", body: JSON.stringify({ email, password }),
+      method: "POST", body: JSON.stringify({ email, password, ...(otp ? { otp } : {}) }),
     }, false);
     setAccessToken(result.accessToken);
     setSession({ user: result.user, organization: result.organization, role: result.role });
