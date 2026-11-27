@@ -1,10 +1,11 @@
 import { Schema, model } from "mongoose";
 
 const auditEventSchema = new Schema({
-  organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
+  organizationId: { type: Schema.Types.ObjectId, ref: "Organization", default: null, index: true },
   actorUserId: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
   action: { type: String, required: true, maxlength: 100 },
   targetType: { type: String, required: true, maxlength: 80 },
+  outcome: { type: String, enum: ["success", "failure"], default: "success", index: true },
   targetId: { type: String, default: null, maxlength: 100 },
   metadata: { type: Schema.Types.Mixed, default: {} },
   ipAddress: { type: String, maxlength: 64 },
