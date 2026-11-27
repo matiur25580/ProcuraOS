@@ -399,7 +399,8 @@ export async function enableMfa(userId: string, organizationId: string, code: st
   const user = await User.findById(userId).select("+mfaPendingSecretEncrypted +mfaSecretEncrypted +mfaRecoveryCodeHashes");
   if (!user?.mfaPendingSecretEncrypted) throw new AuthError("Start MFA enrollment before confirming it", 409);
   const secret = decryptMfaSecret(user.mfaPendingSecretEncrypted);
-  if (!verifyTotp(secret, code)) throw new AuthError("The authenticator code is invalid", 400);
+  const verifiedCounter = matchingTotpCounter(secret, code);
+  if (verifiedCounter === null) throw new AuthError("The authenticator code is invalid", 400);
   const recoveryCodes = Array.from({ length: 10 }, () => {
     const raw = randomBytes(5).toString("hex").toUpperCase();
     return raw.match(/.{1,5}/g)!.join("-");
@@ -408,6 +409,7 @@ export async function enableMfa(userId: string, organizationId: string, code: st
   user.mfaPendingSecretEncrypted = null;
   user.mfaRecoveryCodeHashes = recoveryCodes.map(recoveryHash);
   user.mfaEnabled = true;
+  user.mfaLastUsedCounter = verifiedCounter;
   await user.save();
   await recordMfaAudit(organizationId, userId, "auth.mfa.enabled", metadata);
   return { mfaEnabled: true, recoveryCodes };
