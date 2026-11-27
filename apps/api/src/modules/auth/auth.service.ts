@@ -87,6 +87,7 @@ export async function register(input: RegisterInput, _metadata: { userAgent?: st
     organization: { id: created.organization.id, name: created.organization.name, slug: created.organization.slug },
     role: created.membership.role,
     verificationRequired: true,
+    ...(env.NODE_ENV === "test" ? { verificationToken } : {}),
   };
 }
 
@@ -246,6 +247,7 @@ export async function requestPasswordReset(email: string) {
     subject: "Reset your ProcuraOS password",
     text: `Reset your password by opening: ${env.WEB_ORIGIN}/reset-password?token=${encodeURIComponent(token)}`,
   });
+  return env.NODE_ENV === "test" ? token : undefined;
 }
 
 export async function resetPassword(token: string, password: string) {
