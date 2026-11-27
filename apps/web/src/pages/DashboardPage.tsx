@@ -1,4 +1,4 @@
-import { Activity, ArrowUpRight, Boxes, Building2, ClipboardCheck, LogOut, PackageCheck, Settings, ShieldCheck, Truck } from "lucide-react";
+import { Activity, ArrowUpRight, Boxes, Building2, ClipboardCheck, FileCheck2, LogOut, PackageCheck, Settings, ShieldCheck, Truck } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 const capabilities = [
  { icon: ClipboardCheck, title: "Guided purchasing", description: "A traceable path from purchase request to approved order." },
@@ -13,7 +13,7 @@ export function DashboardPage() {
   <div className="workspace-label">WORKSPACE</div><div className="workspace"><Building2 size={17}/><span>{organization.name}</span><span className="workspace-dot"/></div>
   <nav className="navigation" aria-label="Primary navigation"><span className="nav-heading">OVERVIEW</span>
    <a className="nav-link active" href="/"><Activity size={17}/> Overview</a><a className="nav-link" href="/requisitions"><ClipboardCheck size={17}/> Requisitions</a>
-   <a className="nav-link" href="/suppliers"><Truck size={17}/> Suppliers & RFQs</a><a className="nav-link" href="/purchase-orders"><PackageCheck size={17}/> Purchase orders</a>
+   <a className="nav-link" href="/suppliers"><Truck size={17}/> Suppliers & RFQs</a><a className="nav-link" href="/purchase-orders"><PackageCheck size={17}/> Purchase orders</a><a className="nav-link" href="/invoices"><FileCheck2 size={17}/> Supplier invoices</a>
    <a className="nav-link" href="#controls"><ShieldCheck size={17}/> Controls</a><a className="nav-link" href="/settings"><Settings size={17}/> Team & settings</a>
   </nav><div className="sidebar-footer"><span className="status-indicator"/> Secure organization session</div>
  </aside><section className="main-panel" id="overview">

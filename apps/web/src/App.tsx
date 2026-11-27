@@ -10,6 +10,7 @@ import { RequisitionsPage } from "./pages/RequisitionsPage";
 import { SupplierRfqPage } from "./pages/SupplierRfqPage";
 import { SupplierQuotePage } from "./pages/SupplierQuotePage";
 import { PurchaseOrdersPage } from "./pages/PurchaseOrdersPage";
+import { InvoicesPage } from "./pages/InvoicesPage";
 export default function App() {
  const { loading } = useAuth();
  if (loading) return <div className="auth-loading">Securing your ProcuraOS workspace…</div>;
@@ -20,7 +21,7 @@ export default function App() {
   <Route element={<ProtectedRoute />}>
    <Route path="/" element={<DashboardPage />} /><Route path="/settings" element={<OrganizationAdminPage />} />
    <Route path="/accept-invite" element={<AcceptInvitationPage />} /><Route path="/requisitions" element={<RequisitionsPage />} />
-   <Route path="/suppliers" element={<SupplierRfqPage />} /><Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
+   <Route path="/suppliers" element={<SupplierRfqPage />} /><Route path="/purchase-orders" element={<PurchaseOrdersPage />} /><Route path="/invoices" element={<InvoicesPage />} />
   </Route><Route path="*" element={<Navigate to="/" replace />} />
  </Routes>;
 }
