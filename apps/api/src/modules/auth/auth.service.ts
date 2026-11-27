@@ -1,7 +1,8 @@
 import bcrypt from "bcryptjs";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, createCipheriv, createDecipheriv, createHmac } from "node:crypto";
 import mongoose from "mongoose";
 import { AccountToken } from "../../models/account-token.model.js";
+import { AuditEvent } from "../../models/audit-event.model.js";
 import { sendAccountEmail } from "../../services/email.service.js";
 import { randomUUID } from "node:crypto";
 import { env } from "../../config/env.js";
@@ -102,6 +103,11 @@ export async function login(input: LoginInput, metadata: { userAgent?: string; i
   const valid = user ? await bcrypt.compare(input.password, user.passwordHash) : false;
   if (!user || !valid || user.status !== "active") throw new AuthError("Invalid email or password", 401);
   if (!user.emailVerifiedAt) throw new AuthError("Verify your email address before signing in", 403);
+  if (user.mfaEnabled) {
+    if (!input.otp) throw new AuthError("A one-time password or recovery code is required", 401);
+    const securedUser = await User.findById(user._id).select("+mfaSecretEncrypted +mfaRecoveryCodeHashes");
+    if (!securedUser || !(await consumeMfaCredential(securedUser, input.otp))) throw new AuthError("Invalid one-time password or recovery code", 401);
+  }
   const membership = await Membership.findOne({ userId: user._id, status: "active" }).sort({ createdAt: 1 });
   if (!membership) throw new AuthError("No active organization membership was found", 403);
   const organization = await Organization.findOne({ _id: membership.organizationId, status: "active" });
@@ -277,4 +283,99 @@ export async function resetPassword(token: string, password: string) {
     AccountToken.updateMany({ userId: user._id, consumedAt: null }, { $set: { consumedAt: new Date() } }),
   ]);
   return { passwordReset: true };
+}
+
+const MFA_ISSUER = "ProcuraOS";
+function mfaKey() { return createHash("sha256").update(env.JWT_ACCESS_SECRET).digest(); }
+function encryptMfaSecret(secret: string) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", mfaKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(secret, "utf8"), cipher.final()]);
+  return [iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), encrypted.toString("base64url")].join(".");
+}
+function decryptMfaSecret(value: string) {
+  const [iv, tag, ciphertext] = value.split(".");
+  if (!iv || !tag || !ciphertext) throw new AuthError("MFA configuration is invalid", 500);
+  const decipher = createDecipheriv("aes-256-gcm", mfaKey(), Buffer.from(iv, "base64url"));
+  decipher.setAuthTag(Buffer.from(tag, "base64url"));
+  return Buffer.concat([decipher.update(Buffer.from(ciphertext, "base64url")), decipher.final()]).toString("utf8");
+}
+function base32Encode(bytes: Buffer) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = 0, value = 0, output = "";
+  for (const byte of bytes) { value = (value << 8) | byte; bits += 8; while (bits >= 5) { output += alphabet[(value >>> (bits - 5)) & 31]; bits -= 5; } }
+  if (bits) output += alphabet[(value << (5 - bits)) & 31];
+  return output;
+}
+function base32Decode(value: string) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = 0, buffer = 0;
+  const output: number[] = [];
+  for (const char of value.replace(/=+$/g, "").toUpperCase()) {
+    const index = alphabet.indexOf(char);
+    if (index < 0) throw new AuthError("Invalid MFA secret", 400);
+    buffer = (buffer << 5) | index; bits += 5;
+    if (bits >= 8) { output.push((buffer >>> (bits - 8)) & 255); bits -= 8; }
+  }
+  return Buffer.from(output);
+}
+function totp(secret: string, counter: number) {
+  const message = Buffer.alloc(8); message.writeBigUInt64BE(BigInt(counter));
+  const digest = createHmac("sha1", base32Decode(secret)).update(message).digest();
+  const offset = digest[digest.length - 1]! & 15;
+  const binary = ((digest[offset]! & 127) << 24) | ((digest[offset + 1]! & 255) << 16) | ((digest[offset + 2]! & 255) << 8) | (digest[offset + 3]! & 255);
+  return String(binary % 1_000_000).padStart(6, "0");
+}
+function verifyTotp(secret: string, code: string) {
+  if (!/^\\d{6}$/.test(code)) return false;
+  const counter = Math.floor(Date.now() / 30_000);
+  return [-1, 0, 1].some((drift) => totp(secret, counter + drift) === code);
+}
+function recoveryHash(code: string) { return createHash("sha256").update(code.replace(/-/g, "").toUpperCase()).digest("hex"); }
+async function consumeMfaCredential(user: { mfaSecretEncrypted?: string | null; mfaRecoveryCodeHashes?: string[]; save(): Promise<unknown> }, code: string) {
+  if (user.mfaSecretEncrypted && verifyTotp(decryptMfaSecret(user.mfaSecretEncrypted), code)) return true;
+  const hash = recoveryHash(code);
+  const result = await User.updateOne({ _id: (user as any)._id, mfaRecoveryCodeHashes: hash }, { $pull: { mfaRecoveryCodeHashes: hash } });
+  return result.modifiedCount === 1;
+}
+async function recordMfaAudit(organizationId: string, userId: string, action: string, metadata: { ipAddress?: string; userAgent?: string }) {
+  await AuditEvent.create({ organizationId, actorUserId: userId, action, targetType: "user", targetId: userId, metadata: {}, ...metadata });
+}
+export async function setupMfa(userId: string, organizationId: string, metadata: { ipAddress?: string; userAgent?: string }) {
+  const user = await User.findOne({ _id: userId, status: "active" }).select("+mfaSecretEncrypted");
+  if (!user) throw new AuthError("Account is unavailable", 404);
+  if (user.mfaEnabled) throw new AuthError("Multi-factor authentication is already enabled", 409);
+  const secret = base32Encode(randomBytes(20));
+  user.mfaPendingSecretEncrypted = encryptMfaSecret(secret);
+  await user.save();
+  const label = encodeURIComponent(user.email);
+  return { secret, otpauthUrl: `otpauth://totp/${encodeURIComponent(MFA_ISSUER)}:${label}?secret=${secret}&issuer=${encodeURIComponent(MFA_ISSUER)}&algorithm=SHA1&digits=6&period=30` };
+}
+export async function enableMfa(userId: string, organizationId: string, code: string, metadata: { ipAddress?: string; userAgent?: string }) {
+  const user = await User.findById(userId).select("+mfaPendingSecretEncrypted +mfaSecretEncrypted +mfaRecoveryCodeHashes");
+  if (!user?.mfaPendingSecretEncrypted) throw new AuthError("Start MFA enrollment before confirming it", 409);
+  const secret = decryptMfaSecret(user.mfaPendingSecretEncrypted);
+  if (!verifyTotp(secret, code)) throw new AuthError("The authenticator code is invalid", 400);
+  const recoveryCodes = Array.from({ length: 10 }, () => {
+    const raw = randomBytes(5).toString("hex").toUpperCase();
+    return raw.match(/.{1,5}/g)!.join("-");
+  });
+  user.mfaSecretEncrypted = user.mfaPendingSecretEncrypted;
+  user.mfaPendingSecretEncrypted = null;
+  user.mfaRecoveryCodeHashes = recoveryCodes.map(recoveryHash);
+  user.mfaEnabled = true;
+  await user.save();
+  await recordMfaAudit(organizationId, userId, "auth.mfa.enabled", metadata);
+  return { mfaEnabled: true, recoveryCodes };
+}
+export async function disableMfa(userId: string, organizationId: string, password: string, code: string, metadata: { ipAddress?: string; userAgent?: string }) {
+  const user = await User.findOne({ _id: userId, status: "active" }).select("+passwordHash +mfaSecretEncrypted +mfaRecoveryCodeHashes");
+  if (!user || !(await bcrypt.compare(password, user.passwordHash))) throw new AuthError("Invalid account credentials", 401);
+  if (!user.mfaEnabled || !(await consumeMfaCredential(user, code))) throw new AuthError("Invalid MFA credential", 401);
+  user.mfaEnabled = false;
+  user.mfaSecretEncrypted = null;
+  user.mfaPendingSecretEncrypted = null;
+  user.mfaRecoveryCodeHashes = [];
+  await user.save();
+  await recordMfaAudit(organizationId, userId, "auth.mfa.disabled", metadata);
 }
