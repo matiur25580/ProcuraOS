@@ -61,7 +61,7 @@ export async function listOrganizationsController(req: Request, res: Response) {
 }
 export async function switchOrganizationController(req: Request, res: Response) {
   const oldToken = req.cookies?.procuraos_refresh as string | undefined;
-  const result = await switchUserOrganization(req.auth!.userId, req.body.organizationId as string, metadata(req));
+  const result = await switchUserOrganization(req.auth!.userId, req.body.organizationId as string, metadata(req), req.auth!.organizationId);
   if (oldToken) await revokeRefreshToken(oldToken);
   setRefreshCookie(res, result.refreshToken);
   res.status(200).json({ success: true, data: { organization: result.organization, role: result.role, accessToken: result.accessToken } });
