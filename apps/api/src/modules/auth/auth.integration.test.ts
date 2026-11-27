@@ -12,12 +12,15 @@ let RefreshSession: typeof import("../../models/refresh-session.model.js").Refre
 const metadata = { userAgent: "ProcuraOS integration test", ipAddress: "127.0.0.1" };
 
 async function registerUser(email: string, organizationName: string) {
-  return auth.register({
+  const registered = await auth.register({
     name: "Integration User",
     email,
     password: "CorrectHorseBattery9",
     organizationName,
   }, metadata);
+  await auth.verifyEmail(registered.verificationToken!);
+  const session = await auth.login({ email, password: "CorrectHorseBattery9" }, metadata);
+  return { ...registered, ...session };
 }
 
 beforeAll(async () => {
@@ -88,12 +91,15 @@ describe("authentication and tenant integration", () => {
   });
 
   it("requires email verification before login and consumes verification links once", async () => {
-    const registered = await registerUser("verify@example.test", "Verification Tenant");
+    const registered = await auth.register({
+      name: "Integration User", email: "verify@example.test", password: "CorrectHorseBattery9",
+      organizationName: "Verification Tenant",
+    }, metadata);
     await expect(auth.login({ email: "verify@example.test", password: "CorrectHorseBattery9" }, metadata))
       .rejects.toMatchObject({ statusCode: 403 });
-    const verified = await auth.verifyEmail(registered.verificationToken);
+    const verified = await auth.verifyEmail(registered.verificationToken!);
     expect(verified.verified).toBe(true);
-    await expect(auth.verifyEmail(registered.verificationToken)).rejects.toMatchObject({ statusCode: 410 });
+    await expect(auth.verifyEmail(registered.verificationToken!)).rejects.toMatchObject({ statusCode: 410 });
     const login = await auth.login({ email: "verify@example.test", password: "CorrectHorseBattery9" }, metadata);
     expect(login.accessToken).toBeTruthy();
   });
@@ -102,13 +108,16 @@ describe("authentication and tenant integration", () => {
     const registered = await registerUser("reset@example.test", "Reset Tenant");
     await auth.verifyEmail(registered.verificationToken);
     const login = await auth.login({ email: "reset@example.test", password: "CorrectHorseBattery9" }, metadata);
-    await auth.requestPasswordReset("reset@example.test");
-    const token = await (await import("../../models/account-token.model.js")).AccountToken.findOne({ userId: registered.user.id, purpose: "password_reset" }).select("+tokenHash");
-    // Token values are never stored in plaintext; reset-token delivery is verified by the mailer unit boundary.
-    expect(token?.tokenHash).toMatch(/^[a-f0-9]{64}$/);
-    await auth.revokeAllUserSessions(registered.user.id);
+    const token = await auth.requestPasswordReset("reset@example.test");
+    expect(token).toBeTruthy();
+    await auth.resetPassword(token!, "NewSecurePassword2026");
     expect(await RefreshSession.countDocuments({ userId: registered.user.id, revokedAt: null })).toBe(0);
-    expect(login.accessToken).toBeTruthy();
+    await expect(auth.login({ email: "reset@example.test", password: "CorrectHorseBattery9" }, metadata))
+      .rejects.toMatchObject({ statusCode: 401 });
+    const renewed = await auth.login({ email: "reset@example.test", password: "NewSecurePassword2026" }, metadata);
+    expect(renewed.accessToken).toBeTruthy();
+    await expect(auth.resetPassword(token!, "AnotherSecurePassword2026"))
+      .rejects.toMatchObject({ statusCode: 410 });
   });
 
   it("authenticates with bcrypt and rejects an incorrect password", async () => {
