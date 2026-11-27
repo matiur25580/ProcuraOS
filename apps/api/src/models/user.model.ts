@@ -5,6 +5,7 @@ const userSchema = new Schema({
   email: { type: String, required: true, lowercase: true, trim: true, unique: true, index: true },
   passwordHash: { type: String, required: true, select: false },
   status: { type: String, enum: ["active", "suspended"], default: "active", index: true },
+  emailVerifiedAt: { type: Date, default: null },
   lastLoginAt: { type: Date },
 }, { timestamps: true });
 
