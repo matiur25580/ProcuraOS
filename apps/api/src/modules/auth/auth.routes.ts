@@ -3,8 +3,8 @@ import rateLimit from "express-rate-limit";
 import { authenticate } from "../../middleware/authenticate.js";
 import { requireTrustedOrigin } from "../../middleware/require-trusted-origin.js";
 import { validateBody } from "../../middleware/validate.js";
-import { createOrganizationController, listOrganizationsController, loginController, logoutAllController, logoutController, meController, refreshController, registerController, switchOrganizationController, updateProfileController, listSessionsController, revokeSessionController } from "./auth.controller.js";
-import { createOrganizationSchema, loginSchema, registerSchema, switchOrganizationSchema, updateProfileSchema } from "./auth.schemas.js";
+import { createOrganizationController, listOrganizationsController, loginController, logoutAllController, logoutController, meController, refreshController, registerController, switchOrganizationController, updateProfileController, listSessionsController, revokeSessionController, verifyEmailController, forgotPasswordController, resetPasswordController } from "./auth.controller.js";
+import { createOrganizationSchema, loginSchema, registerSchema, switchOrganizationSchema, updateProfileSchema, verifyEmailSchema, forgotPasswordSchema, resetPasswordSchema } from "./auth.schemas.js";
 
 export const authRouter = Router();
 const authLimiter = rateLimit({
@@ -12,6 +12,9 @@ const authLimiter = rateLimit({
   message: { success: false, error: { message: "Too many authentication attempts. Try again later." } },
 });
 
+authRouter.post("/verify-email", authLimiter, requireTrustedOrigin, validateBody(verifyEmailSchema), verifyEmailController);
+authRouter.post("/forgot-password", authLimiter, requireTrustedOrigin, validateBody(forgotPasswordSchema), forgotPasswordController);
+authRouter.post("/reset-password", authLimiter, requireTrustedOrigin, validateBody(resetPasswordSchema), resetPasswordController);
 authRouter.post("/register", authLimiter, requireTrustedOrigin, validateBody(registerSchema), registerController);
 authRouter.post("/login", authLimiter, requireTrustedOrigin, validateBody(loginSchema), loginController);
 authRouter.post("/refresh", authLimiter, requireTrustedOrigin, refreshController);
