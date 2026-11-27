@@ -59,17 +59,23 @@ export async function register(input: RegisterInput, _metadata: { userAgent?: st
   let created!: { user: typeof User.prototype; organization: typeof Organization.prototype; membership: typeof Membership.prototype };
   try {
     await session.withTransaction(async () => {
-      const user = (await User.create([{
+      const users = await User.create([{
         name: input.name, email: input.email.toLowerCase(), passwordHash,
-      }], { session }))[0]!;
-      const organization = (await Organization.create([{
+      }], { session });
+      const user = users[0];
+      if (!user) throw new Error("User provisioning did not return a document");
+      const organizations = await Organization.create([{
         name: input.organizationName,
         slug: await uniqueSlug(input.organizationName),
         createdBy: user._id,
-      }], { session }))[0]!;
-      const membership = (await Membership.create([{
+      }], { session });
+      const organization = organizations[0];
+      if (!organization) throw new Error("Organization provisioning did not return a document");
+      const memberships = await Membership.create([{
         userId: user._id, organizationId: organization._id, role: "owner",
-      }], { session }))[0]!;
+      }], { session });
+      const membership = memberships[0];
+      if (!membership) throw new Error("Owner membership provisioning did not return a document");
       created = { user, organization, membership };
     });
   } finally {
@@ -160,12 +166,16 @@ export async function createOrganizationForUser(userId: string, name: string) {
   let result!: { id: string; name: string; slug: string; role: string };
   try {
     await session.withTransaction(async () => {
-      const organization = (await Organization.create([{
+      const organizations = await Organization.create([{
         name, slug: `${await uniqueSlug(name)}-${randomUUID().slice(0, 6)}`, createdBy: userId,
-      }], { session }))[0]!;
-      const membership = (await Membership.create([{
+      }], { session });
+      const organization = organizations[0];
+      if (!organization) throw new Error("Organization provisioning did not return a document");
+      const memberships = await Membership.create([{
         userId, organizationId: organization._id, role: "owner",
-      }], { session }))[0]!;
+      }], { session });
+      const membership = memberships[0];
+      if (!membership) throw new Error("Owner membership provisioning did not return a document");
       result = { id: organization.id, name: organization.name, slug: organization.slug, role: membership.role };
     });
   } finally {
