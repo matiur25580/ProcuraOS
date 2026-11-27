@@ -69,6 +69,7 @@ function invoiceInput(orderId: Types.ObjectId, itemId: Types.ObjectId, invoiceNu
     purchaseOrderId: orderId.toString(),
     invoiceDate: "2026-11-27T00:00:00.000Z",
     taxMinor: 1800,
+    notes: "",
     items: [{ purchaseOrderItemId: itemId.toString(), quantity: 2, unitPriceMinor: 4500 }],
     ...overrides,
   };
