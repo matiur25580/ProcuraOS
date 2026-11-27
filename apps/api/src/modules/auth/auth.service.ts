@@ -59,17 +59,17 @@ export async function register(input: RegisterInput, _metadata: { userAgent?: st
   let created!: { user: typeof User.prototype; organization: typeof Organization.prototype; membership: typeof Membership.prototype };
   try {
     await session.withTransaction(async () => {
-      const [user] = await User.create([{
+      const user = (await User.create([{
         name: input.name, email: input.email.toLowerCase(), passwordHash,
-      }], { session });
-      const [organization] = await Organization.create([{
+      }], { session }))[0]!;
+      const organization = (await Organization.create([{
         name: input.organizationName,
         slug: await uniqueSlug(input.organizationName),
         createdBy: user._id,
-      }], { session });
-      const [membership] = await Membership.create([{
+      }], { session }))[0]!;
+      const membership = (await Membership.create([{
         userId: user._id, organizationId: organization._id, role: "owner",
-      }], { session });
+      }], { session }))[0]!;
       created = { user, organization, membership };
     });
   } finally {
@@ -160,12 +160,12 @@ export async function createOrganizationForUser(userId: string, name: string) {
   let result!: { id: string; name: string; slug: string; role: string };
   try {
     await session.withTransaction(async () => {
-      const [organization] = await Organization.create([{
+      const organization = (await Organization.create([{
         name, slug: `${await uniqueSlug(name)}-${randomUUID().slice(0, 6)}`, createdBy: userId,
-      }], { session });
-      const [membership] = await Membership.create([{
+      }], { session }))[0]!;
+      const membership = (await Membership.create([{
         userId, organizationId: organization._id, role: "owner",
-      }], { session });
+      }], { session }))[0]!;
       result = { id: organization.id, name: organization.name, slug: organization.slug, role: membership.role };
     });
   } finally {
