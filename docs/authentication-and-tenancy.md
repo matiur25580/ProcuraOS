@@ -45,6 +45,24 @@ Use `requirePermission("domain:action")` on each business route. Add new permiss
 | POST | `/api/v1/auth/organizations` | Create another organization membership |
 | POST | `/api/v1/auth/switch-organization` | Switch to an organization the user belongs to |
 
+## Account verification and recovery
+
+New registrations provision the user, organization and owner membership inside a MongoDB transaction. The account remains unable to sign in until its email is verified. Verification and password-reset credentials are cryptographically random, stored only as SHA-256 hashes, expire automatically, and are consumed atomically once. Password reset hashes the replacement password with bcrypt and revokes every active refresh-token session.
+
+Public endpoints:
+- `POST /api/v1/auth/verify-email` with `{ "token": "..." }`
+- `POST /api/v1/auth/forgot-password` with `{ "email": "..." }` (always returns a generic accepted response)
+- `POST /api/v1/auth/reset-password` with `{ "token": "...", "password": "..." }`
+
+Configure SMTP in the API environment:
+- `SMTP_HOST`
+- `SMTP_PORT` (587 by default; 465 uses implicit TLS)
+- `SMTP_USER`
+- `SMTP_PASS`
+- `EMAIL_FROM`
+
+All five settings are required in production. In development without SMTP, email delivery is skipped and tokens are not printed to logs; configure a local SMTP catcher or test mail account to complete verification manually. The web origin in `WEB_ORIGIN` is used to construct links.
+
 ## Integration tests
 
 `apps/api/src/modules/auth/auth.integration.test.ts` starts a disposable single-node MongoDB replica set with WiredTiger. It exercises persisted registration records, bcrypt verification, login, refresh rotation and replay revocation, logout-all, and organization membership enforcement against real MongoDB collections and indexes. The test manages its own replica-set lifecycle and does not use a developer database.
@@ -64,7 +82,7 @@ Set `JWT_ACCESS_SECRET` to a cryptographically random secret of at least 32 char
 ## Remaining production work
 
 - Registration and organization creation currently use compensating cleanup, not a multi-document transaction. Keep production rollout blocked until the deployment uses a replica set and the workflows are migrated to transactions or a durable outbox.
-- Add email verification, password reset, MFA and account recovery.
+- Add TOTP-based MFA enrollment, challenge verification, recovery codes and step-up authentication.
 - Add a cross-tab refresh coordination strategy or carefully designed rotation grace policy.
 - Add audit events for authentication, session revocation and organization switching.
 - Extend replica-set tests to API-level end-to-end tests, failure injection and concurrency/race scenarios.
