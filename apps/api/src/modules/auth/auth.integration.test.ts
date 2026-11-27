@@ -119,6 +119,42 @@ describe("authentication and tenant integration", () => {
       .rejects.toMatchObject({ statusCode: 410 });
   });
 
+
+  it("enforces TOTP MFA and consumes recovery codes exactly once", async () => {
+    const registered = await registerUser("mfa@example.test", "MFA Tenant");
+    const enrollment = await auth.setupMfa(registered.user.id, registered.organization.id, metadata);
+    const decodeBase32 = (value: string) => {
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+      let bits = 0, buffer = 0;
+      const output: number[] = [];
+      for (const char of value) {
+        buffer = (buffer << 5) | alphabet.indexOf(char); bits += 5;
+        if (bits >= 8) { output.push((buffer >>> (bits - 8)) & 255); bits -= 8; }
+      }
+      return Buffer.from(output);
+    };
+    const counter = Math.floor(Date.now() / 30_000);
+    const message = Buffer.alloc(8); message.writeBigUInt64BE(BigInt(counter));
+    const digest = (await import("node:crypto")).createHmac("sha1", decodeBase32(enrollment.secret)).update(message).digest();
+    const offset = digest[digest.length - 1]! & 15;
+    const binary = ((digest[offset]! & 127) << 24) | ((digest[offset + 1]! & 255) << 16) | ((digest[offset + 2]! & 255) << 8) | (digest[offset + 3]! & 255);
+    const code = String(binary % 1_000_000).padStart(6, "0");
+    const enabled = await auth.enableMfa(registered.user.id, registered.organization.id, code, metadata);
+    expect(enabled.mfaEnabled).toBe(true);
+    expect(enabled.recoveryCodes).toHaveLength(10);
+    const stored = await User.findById(registered.user.id).select("+mfaSecretEncrypted +mfaRecoveryCodeHashes");
+    expect(stored?.mfaSecretEncrypted).not.toContain(enrollment.secret);
+    await expect(auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9" }, metadata))
+      .rejects.toMatchObject({ statusCode: 401 });
+    const signedIn = await auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: code }, metadata);
+    expect(signedIn.accessToken).toBeTruthy();
+    const recovery = enabled.recoveryCodes[0]!;
+    const recovered = await auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: recovery }, metadata);
+    expect(recovered.accessToken).toBeTruthy();
+    await expect(auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: recovery }, metadata))
+      .rejects.toMatchObject({ statusCode: 401 });
+  });
+
   it("authenticates with bcrypt and rejects an incorrect password", async () => {
     const registered = await registerUser("login@example.test", "Login Tenant");
 
