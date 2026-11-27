@@ -8,7 +8,7 @@ type Member = { membershipId: string; userId: string; name: string; email: strin
 type Invitation = { id: string; email: string; role: string; expiresAt: string; createdAt: string };
 type AuditEvent = { id: string; action: string; targetType: string; actor: { name: string; email: string } | null; createdAt: string };
 type Session = { id: string; current: boolean; userAgent: string; ipAddress: string | null; createdAt: string; expiresAt: string };
-type Organization = { id: string; name: string; slug: string; status: string };
+type Organization = { id: string; name: string; slug: string; status: string };\ntype MfaSetup = { secret: string; otpauthUrl: string };
 
 const roles = ["admin", "procurement_manager", "procurement_officer", "finance_manager", "auditor"];
 const roleLabel = (role: string) => role.replaceAll("_", " ");
@@ -19,7 +19,7 @@ export function OrganizationAdminPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [events, setEvents] = useState<AuditEvent[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);\n  const [mfaEnabled, setMfaEnabled] = useState(false);\n  const [mfaSetup, setMfaSetup] = useState<MfaSetup | null>(null);\n  const [mfaCode, setMfaCode] = useState("");\n  const [mfaPassword, setMfaPassword] = useState("");\n  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [name, setName] = useState(activeOrganization.name);
   const [profileName, setProfileName] = useState(user.name);
   const [email, setEmail] = useState("");
@@ -37,16 +37,16 @@ export function OrganizationAdminPage() {
   async function load() {
     setBusy(true); setError("");
     try {
-      const [org, memberData, inviteData, auditData, sessionData] = await Promise.all([
+      const [org, memberData, inviteData, auditData, sessionData, profileData] = await Promise.all([
         apiRequest<{ organization: Organization }>("/organization", { method: "GET" }),
         canReadMembers ? apiRequest<{ members: Member[] }>("/organization/members", { method: "GET" }) : Promise.resolve({ members: [] as Member[] }),
         canManage ? apiRequest<{ invitations: Invitation[] }>("/organization/invitations", { method: "GET" }) : Promise.resolve({ invitations: [] }),
         canReadAudit ? apiRequest<{ events: AuditEvent[] }>("/organization/audit-events?limit=30", { method: "GET" }) : Promise.resolve({ events: [] as AuditEvent[] }),
-        apiRequest<{ sessions: Session[] }>("/auth/sessions", { method: "GET" }),
+        apiRequest<{ sessions: Session[] }>("/auth/sessions", { method: "GET" }),\n        apiRequest<{ user: { mfaEnabled: boolean } }>("/auth/me", { method: "GET" }),
       ]);
       setOrganization(org.organization); setName(org.organization.name);
       setMembers(memberData.members); setInvitations(inviteData.invitations);
-      setEvents(auditData.events); setSessions(sessionData.sessions);
+      setEvents(auditData.events); setSessions(sessionData.sessions); setMfaEnabled(profileData.user.mfaEnabled);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load organization settings");
     } finally { setBusy(false); }
@@ -110,7 +110,28 @@ export function OrganizationAdminPage() {
     catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to revoke session"); }
   }
 
-  async function copyInvite() {
+
+  async function beginMfaSetup() {
+    setError(""); setNotice(""); setRecoveryCodes([]);
+    try { const result = await apiRequest<MfaSetup>("/auth/mfa/setup", { method: "POST" }); setMfaSetup(result); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to start MFA setup"); }
+  }
+  async function confirmMfaSetup(event: FormEvent) {
+    event.preventDefault(); setError(""); setNotice("");
+    try {
+      const result = await apiRequest<{ mfaEnabled: boolean; recoveryCodes: string[] }>("/auth/mfa/enable", { method: "POST", body: JSON.stringify({ code: mfaCode }) });
+      setMfaEnabled(result.mfaEnabled); setRecoveryCodes(result.recoveryCodes); setMfaSetup(null); setMfaCode("");
+      setNotice("MFA is enabled. Save your recovery codes now; they will not be shown again.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to enable MFA"); }
+  }
+  async function turnOffMfa(event: FormEvent) {
+    event.preventDefault(); setError(""); setNotice("");
+    try {
+      await apiRequest("/auth/mfa/disable", { method: "POST", body: JSON.stringify({ password: mfaPassword, code: mfaCode }) });
+      setMfaEnabled(false); setMfaPassword(""); setMfaCode(""); setRecoveryCodes([]); setNotice("MFA has been disabled."); await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to disable MFA"); }
+  }
+\n  async function copyInvite() {
     if (!inviteUrl) return;
     try { await navigator.clipboard.writeText(inviteUrl); setNotice("Invitation link copied."); }
     catch { setError("Clipboard access is unavailable. Select and copy the invitation link manually."); }
@@ -156,7 +177,16 @@ export function OrganizationAdminPage() {
           {canManage && <section className="admin-panel"><div className="panel-title"><div><h2>Pending invitations</h2><p>Only active, unexpired invitations are shown.</p></div><span className="count-pill">{invitations.length}</span></div>{invitations.length ? <div className="invitation-list">{invitations.map(item => <div className="invitation-row" key={item.id}><div><strong>{item.email}</strong><span>{roleLabel(item.role)} · expires {new Date(item.expiresAt).toLocaleDateString()}</span></div><button className="danger-text" onClick={() => void revokeInvitation(item.id)}>Revoke</button></div>)}</div> : <p className="empty-state">No pending invitations.</p>}</section>}
         </>}
         {tab === "audit" && canReadAudit && <section className="admin-panel"><div className="panel-title"><div><h2>Organization audit trail</h2><p>Recent governance events for this tenant.</p></div></div>{events.length ? <div className="activity-list">{events.map(item => <div className="activity-row" key={item.id}><span className="activity-dot" /><div><strong>{item.action.replaceAll(".", " ")}</strong><span>{item.actor?.name ?? "System"} · {item.targetType}</span></div><time>{new Date(item.createdAt).toLocaleString()}</time></div>)}</div> : <p className="empty-state">No audit events recorded yet.</p>}</section>}
-        {tab === "security" && <section className="admin-panel"><div className="panel-title"><div><h2>Active sessions</h2><p>Sessions associated with your current organization.</p></div></div>{sessions.length ? <div className="session-list">{sessions.map(item => <div className="session-row" key={item.id}><div><strong>{item.userAgent}</strong><span>{item.ipAddress ?? "IP unavailable"} · started {new Date(item.createdAt).toLocaleString()}</span></div><div className="session-actions">{item.current ? <span className="current-session">Current session</span> : <button className="danger-text" onClick={() => void revokeSession(item.id)}>Revoke</button>}</div></div>)}</div> : <p className="empty-state">No active sessions found.</p>}</section>}
+        {tab === "security" && <>
+          <section className="admin-panel">
+            <div className="panel-title"><div><h2>Multi-factor authentication</h2><p>Protect sign-ins with an authenticator app and one-time recovery codes.</p></div><span className={mfaEnabled ? "status-active" : "status-suspended"}>{mfaEnabled ? "Enabled" : "Not enabled"}</span></div>
+            {!mfaEnabled && !mfaSetup && <button className="admin-primary" type="button" onClick={() => void beginMfaSetup()}>Set up authenticator</button>}
+            {mfaSetup && <form className="mfa-setup" onSubmit={confirmMfaSetup}><p>Enter this secret into your authenticator app, or use the provisioning URI:</p><code>{mfaSetup.secret}</code><textarea readOnly value={mfaSetup.otpauthUrl} rows={2} aria-label="Authenticator provisioning URI" /><label>6-digit authenticator code<input inputMode="numeric" autoComplete="one-time-code" value={mfaCode} onChange={event => setMfaCode(event.target.value)} pattern="[0-9]{6}" maxLength={6} required /></label><button className="admin-primary" type="submit">Confirm and enable MFA</button></form>}
+            {mfaEnabled && <form className="mfa-setup" onSubmit={turnOffMfa}><label>Account password<input type="password" autoComplete="current-password" value={mfaPassword} onChange={event => setMfaPassword(event.target.value)} required /></label><label>Authenticator or recovery code<input value={mfaCode} onChange={event => setMfaCode(event.target.value)} required /></label><button className="danger-text" type="submit">Disable MFA</button></form>}
+            {recoveryCodes.length > 0 && <div className="recovery-codes"><strong>Save these recovery codes now</strong><p>Each code can be used once. Store them somewhere secure.</p><pre>{recoveryCodes.join("\\n")}</pre><button type="button" onClick={() => void navigator.clipboard.writeText(recoveryCodes.join("\\n"))}>Copy recovery codes</button></div>}
+          </section>
+          <section className="admin-panel"><div className="panel-title"><div><h2>Active sessions</h2><p>Sessions associated with your current organization.</p></div></div>{sessions.length ? <div className="session-list">{sessions.map(item => <div className="session-row" key={item.id}><div><strong>{item.userAgent}</strong><span>{item.ipAddress ?? "IP unavailable"} · started {new Date(item.createdAt).toLocaleString()}</span></div><div className="session-actions">{item.current ? <span className="current-session">Current session</span> : <button className="danger-text" onClick={() => void revokeSession(item.id)}>Revoke</button>}</div></div>)}</div> : <p className="empty-state">No active sessions found.</p>}</section>
+        </>}
         {tab === "profile" && <section className="admin-panel"><div className="panel-title"><div><h2>Personal profile</h2><p>Update the display name associated with your account.</p></div></div><form className="invite-fields" onSubmit={saveProfile}><label>Full name<input value={profileName} onChange={event => setProfileName(event.target.value)} minLength={2} maxLength={100} required /></label><label>Account email<input type="email" value={user.email} disabled /></label><button className="admin-primary" type="submit">Save profile</button></form></section>}
         <footer className="admin-footer">Organization data is scoped by your authenticated tenant membership. Current workspace: {activeOrganization.slug}.</footer>
       </section>
