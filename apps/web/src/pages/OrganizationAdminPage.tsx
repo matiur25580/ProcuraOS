@@ -20,7 +20,12 @@ export function OrganizationAdminPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [events, setEvents] = useState<AuditEvent[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);\n  const [mfaEnabled, setMfaEnabled] = useState(false);\n  const [mfaSetup, setMfaSetup] = useState<MfaSetup | null>(null);\n  const [mfaCode, setMfaCode] = useState("");\n  const [mfaPassword, setMfaPassword] = useState("");\n  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [mfaSetup, setMfaSetup] = useState<MfaSetup | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaPassword, setMfaPassword] = useState("");
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [name, setName] = useState(activeOrganization.name);
   const [profileName, setProfileName] = useState(user.name);
   const [email, setEmail] = useState("");
@@ -43,7 +48,8 @@ export function OrganizationAdminPage() {
         canReadMembers ? apiRequest<{ members: Member[] }>("/organization/members", { method: "GET" }) : Promise.resolve({ members: [] as Member[] }),
         canManage ? apiRequest<{ invitations: Invitation[] }>("/organization/invitations", { method: "GET" }) : Promise.resolve({ invitations: [] }),
         canReadAudit ? apiRequest<{ events: AuditEvent[] }>("/organization/audit-events?limit=30", { method: "GET" }) : Promise.resolve({ events: [] as AuditEvent[] }),
-        apiRequest<{ sessions: Session[] }>("/auth/sessions", { method: "GET" }),\n        apiRequest<{ user: { mfaEnabled: boolean } }>("/auth/me", { method: "GET" }),
+        apiRequest<{ sessions: Session[] }>("/auth/sessions", { method: "GET" }),
+        apiRequest<{ user: { mfaEnabled: boolean } }>("/auth/me", { method: "GET" }),
       ]);
       setOrganization(org.organization); setName(org.organization.name);
       setMembers(memberData.members); setInvitations(inviteData.invitations);
