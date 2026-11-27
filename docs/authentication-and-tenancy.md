@@ -63,6 +63,17 @@ Configure SMTP in the API environment:
 
 All five settings are required in production. In development without SMTP, email delivery is skipped and tokens are not printed to logs; configure a local SMTP catcher or test mail account to complete verification manually. The web origin in `WEB_ORIGIN` is used to construct links.
 
+## Multi-factor authentication
+
+Users can enroll an authenticator app using the standard RFC 6238 TOTP format. The API encrypts pending and active TOTP secrets with AES-256-GCM using a key derived from `JWT_ACCESS_SECRET`; recovery codes are stored only as SHA-256 hashes. Enabling MFA requires a valid authenticator code and returns ten one-time recovery codes once. Login accepts a six-digit TOTP code or one unused recovery code in the `otp` field. Recovery codes are atomically consumed, and disabling MFA requires both the account password and a valid TOTP/recovery credential.
+
+Authenticated endpoints:
+- `POST /api/v1/auth/mfa/setup` creates an enrollment secret and otpauth URI.
+- `POST /api/v1/auth/mfa/enable` with `{ "code": "123456" }` activates MFA and returns recovery codes.
+- `POST /api/v1/auth/mfa/disable` with `{ "password": "...", "code": "..." }` disables MFA.
+
+Treat recovery codes like passwords: display and store them securely when first returned. Rotating `JWT_ACCESS_SECRET` also rotates the derived MFA encryption key; production key rotation must therefore include a planned MFA-secret re-enrollment or a dedicated versioned KMS key strategy.
+
 ## Integration tests
 
 `apps/api/src/modules/auth/auth.integration.test.ts` starts a disposable single-node MongoDB replica set with WiredTiger. It exercises persisted registration records, bcrypt verification, login, refresh rotation and replay revocation, logout-all, and organization membership enforcement against real MongoDB collections and indexes. The test manages its own replica-set lifecycle and does not use a developer database.
