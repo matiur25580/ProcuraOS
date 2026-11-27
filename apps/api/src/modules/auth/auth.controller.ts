@@ -3,7 +3,7 @@ import { Membership } from "../../models/membership.model.js";
 import { Organization } from "../../models/organization.model.js";
 import { User } from "../../models/user.model.js";
 import { listSessions, revokeSession } from "../organization/organization.service.js";
-import { AuthError, createOrganizationForUser, listUserOrganizations, login, refreshCookieOptions, register, revokeAllUserSessions, revokeRefreshToken, rotateRefreshToken, switchUserOrganization, updateUserProfile, verifyEmail, requestPasswordReset, resetPassword, setupMfa, enableMfa, disableMfa } from "./auth.service.js";
+import { AuthError, createOrganizationForUser, listUserOrganizations, login, refreshCookieOptions, register, revokeAllUserSessions, revokeRefreshToken, rotateRefreshToken, switchUserOrganization, updateUserProfile, verifyEmail, requestPasswordReset, resetPassword, setupMfa, enableMfa, disableMfa, issueStepUpGrant } from "./auth.service.js";
 import type { LoginInput, RegisterInput } from "./auth.schemas.js";
 
 function metadata(req: Request) {
@@ -104,4 +104,9 @@ export async function enableMfaController(req: Request, res: Response) {
 export async function disableMfaController(req: Request, res: Response) {
   await disableMfa(req.auth!.userId, req.auth!.organizationId, req.body.password as string, req.body.code as string, metadata(req));
   res.status(200).json({ success: true, data: { mfaEnabled: false } });
+}
+
+export async function stepUpController(req: Request, res: Response) {
+  const result = await issueStepUpGrant(req.auth!.userId, req.auth!.organizationId, req.auth!.sessionFamilyId, req.body.password as string, req.body.otp as string | undefined, metadata(req));
+  res.status(200).json({ success: true, data: result });
 }
