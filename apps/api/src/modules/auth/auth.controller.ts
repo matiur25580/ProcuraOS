@@ -3,7 +3,7 @@ import { Membership } from "../../models/membership.model.js";
 import { Organization } from "../../models/organization.model.js";
 import { User } from "../../models/user.model.js";
 import { listSessions, revokeSession } from "../organization/organization.service.js";
-import { AuthError, createOrganizationForUser, listUserOrganizations, login, refreshCookieOptions, register, revokeAllUserSessions, revokeRefreshToken, rotateRefreshToken, switchUserOrganization, updateUserProfile } from "./auth.service.js";
+import { AuthError, createOrganizationForUser, listUserOrganizations, login, refreshCookieOptions, register, revokeAllUserSessions, revokeRefreshToken, rotateRefreshToken, switchUserOrganization, updateUserProfile, verifyEmail, requestPasswordReset, resetPassword } from "./auth.service.js";
 import type { LoginInput, RegisterInput } from "./auth.schemas.js";
 
 function metadata(req: Request) {
@@ -79,4 +79,17 @@ export async function listSessionsController(req: Request, res: Response) {
 export async function revokeSessionController(req: Request, res: Response) {
   await revokeSession(req.auth!.userId, req.auth!.organizationId, String(req.params.sessionId ?? ""));
   res.status(200).json({ success: true, data: { message: "Session revoked" } });
+}
+
+export async function verifyEmailController(req: Request, res: Response) {
+  const result = await verifyEmail(req.body.token as string);
+  res.status(200).json({ success: true, data: result });
+}
+export async function forgotPasswordController(req: Request, res: Response) {
+  await requestPasswordReset(req.body.email as string);
+  res.status(202).json({ success: true, data: { message: "If the account exists, password reset instructions have been sent." } });
+}
+export async function resetPasswordController(req: Request, res: Response) {
+  const result = await resetPassword(req.body.token as string, req.body.password as string);
+  res.status(200).json({ success: true, data: result });
 }
