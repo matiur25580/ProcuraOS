@@ -40,7 +40,7 @@ describe("bank reconciliation and payment reporting", () => {
   expect(await listStatementLines(org.toString())).toHaveLength(1);
  });
  it("rejects amount, currency and reference mismatches", async () => {
-  const payment = await scheduleSupplierPayment(org.toString(), actor.toString(), { invoiceId: invoice.toString(), paymentMethod: "bank_transfer" }, meta);
+  const payment = await scheduleSupplierPayment(org.toString(), actor.toString(), { invoiceId: invoice.toString(), amountMinor: 10000, idempotencyKey: "recon-payment-0001", paymentMethod: "bank_transfer" }, meta);
   await settleSupplierPayment(org.toString(), actor.toString(), payment.id, "UTR-EXPECTED", undefined, meta);
   const line = await importStatementLine(org.toString(), actor.toString(), { bankAccountLabel: "Operating", transactionId: "BANK-TX-002", transactionDate: new Date().toISOString(), amountMinor: 9999, currency: "INR", reference: "UTR-EXPECTED" }, meta);
   await expect(matchStatementLine(org.toString(), actor.toString(), line.id, payment.id, meta)).rejects.toBeInstanceOf(PaymentError);
