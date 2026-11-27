@@ -93,8 +93,14 @@ Set `JWT_ACCESS_SECRET` to a cryptographically random secret of at least 32 char
 ## Remaining production work
 
 - Multi-document registration and organization creation require a replica-set or sharded MongoDB deployment because they use MongoDB transactions.
-- Add step-up authentication for high-risk actions such as payment-detail changes, ownership transfer and privileged exports.
+- Extend step-up authentication to payment-detail changes, ownership transfer and privileged exports as those modules are introduced.
 - Add a cross-tab refresh coordination strategy or carefully designed rotation grace policy.
-- Extend authentication audit events to cover login failures, session revocation and organization switching.
+- Authentication audit events now record successful/failed sign-ins, session refresh/revocation, organization switching, step-up issuance/failure/consumption and MFA state changes.
 - Extend replica-set tests to API-level end-to-end tests, failure injection and concurrency/race scenarios.
 - Use a shared rate-limit store when deploying multiple API instances.
+
+## Step-up verification and security audit
+
+Sensitive organization-administration and purchase-order approval/issuance/revision routes require a fresh step-up grant. Obtain one with `POST /api/v1/auth/step-up` using the authenticated access token and JSON `{ "password": "...", "otp": "..." }`. The OTP is required when MFA is enabled; otherwise password confirmation is sufficient. The response contains a cryptographically random token that is returned only once. Send it in the `x-step-up-token` header on exactly one protected operation. Grants expire after five minutes and are bound to the user, active organization and refresh-session family. The API stores only the SHA-256 hash and atomically consumes a grant before executing the protected operation; a failed or replayed grant is rejected.
+
+Audit events capture login success/failure (without storing submitted passwords or OTPs), refresh and revocation activity, organization switches, step-up outcomes and sensitive grant consumption. Authentication events that cannot be attributed to an organization are stored with a null organization ID; organization audit views remain scoped to the current tenant.
