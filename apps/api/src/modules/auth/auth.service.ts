@@ -51,7 +51,7 @@ async function recordAuthenticationEvent(input: { organizationId?: mongoose.Type
 
 async function recordLoginFailure(userId: mongoose.Types.ObjectId, reason: string, metadata: { ipAddress?: string; userAgent?: string }) {
   const membership = await Membership.findOne({ userId, status: "active" }).select("organizationId");
-  await recordAuthenticationEvent({ organizationId: membership?.organizationId, actorUserId: userId, action: "auth.login.failed", outcome: "failure", metadata: { reason }, ...metadata });
+  await recordAuthenticationEvent({ ...(membership?.organizationId ? { organizationId: membership.organizationId } : {}), actorUserId: userId, action: "auth.login.failed", outcome: "failure", metadata: { reason }, ...metadata });
 }
 
 function publicUser(user: { _id: { toString(): string }; name: string; email: string }) {
@@ -122,7 +122,7 @@ export async function login(input: LoginInput, metadata: { userAgent?: string; i
   const valid = user ? await bcrypt.compare(input.password, user.passwordHash) : false;
   if (!user || !valid || user.status !== "active") {
     const membership = user ? await Membership.findOne({ userId: user._id, status: "active" }).select("organizationId") : null;
-    await recordAuthenticationEvent({ organizationId: membership?.organizationId, actorUserId: user?._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "invalid_credentials" }, ...metadata });
+    await recordAuthenticationEvent({ ...(membership?.organizationId ? { organizationId: membership.organizationId } : {}), ...(user?._id ? { actorUserId: user._id } : {}), action: "auth.login.failed", outcome: "failure", metadata: { reason: "invalid_credentials" }, ...metadata });
     throw new AuthError("Invalid email or password", 401);
   }
   if (!user.emailVerifiedAt) {
