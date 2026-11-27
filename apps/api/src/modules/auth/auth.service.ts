@@ -327,7 +327,7 @@ function totp(secret: string, counter: number) {
   return String(binary % 1_000_000).padStart(6, "0");
 }
 function verifyTotp(secret: string, code: string) {
-  if (!/^\\d{6}$/.test(code)) return false;
+  if (!/^\d{6}$/.test(code)) return false;
   const counter = Math.floor(Date.now() / 30_000);
   return [-1, 0, 1].some((drift) => totp(secret, counter + drift) === code);
 }
