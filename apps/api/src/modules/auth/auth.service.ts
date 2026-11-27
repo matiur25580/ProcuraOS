@@ -115,8 +115,15 @@ export async function register(input: RegisterInput, _metadata: { userAgent?: st
 export async function login(input: LoginInput, metadata: { userAgent?: string; ipAddress?: string }) {
   const user = await User.findOne({ email: input.email.toLowerCase() }).select("+passwordHash");
   const valid = user ? await bcrypt.compare(input.password, user.passwordHash) : false;
-  if (!user || !valid || user.status !== "active") {\n    const membership = user ? await Membership.findOne({ userId: user._id, status: "active" }).select("organizationId") : null;\n    await recordAuthenticationEvent({ organizationId: membership?.organizationId, actorUserId: user?._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "invalid_credentials" }, ...metadata });\n    throw new AuthError("Invalid email or password", 401);\n  }
-  if (!user.emailVerifiedAt) {\n    await recordAuthenticationEvent({ actorUserId: user._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "email_unverified" }, ...metadata });\n    throw new AuthError("Verify your email address before signing in", 403);\n  }
+  if (!user || !valid || user.status !== "active") {
+    const membership = user ? await Membership.findOne({ userId: user._id, status: "active" }).select("organizationId") : null;
+    await recordAuthenticationEvent({ organizationId: membership?.organizationId, actorUserId: user?._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "invalid_credentials" }, ...metadata });
+    throw new AuthError("Invalid email or password", 401);
+  }
+  if (!user.emailVerifiedAt) {
+    await recordAuthenticationEvent({ actorUserId: user._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "email_unverified" }, ...metadata });
+    throw new AuthError("Verify your email address before signing in", 403);
+  }
   if (user.mfaEnabled) {
     if (!input.otp) { await recordAuthenticationEvent({ actorUserId: user._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "mfa_required" }, ...metadata }); throw new AuthError("A one-time password or recovery code is required", 401); }
     const securedUser = await User.findById(user._id).select("+mfaSecretEncrypted +mfaRecoveryCodeHashes");
@@ -129,6 +136,7 @@ export async function login(input: LoginInput, metadata: { userAgent?: string; i
   user.lastLoginAt = new Date();
   await user.save();
   const tokens = await issueSession(user.id, organization.id, membership.id, metadata);
+  await recordAuthenticationEvent({ organizationId: organization._id, actorUserId: user._id, action: "auth.login.succeeded", metadata });
   return { user: publicUser(user), organization: { id: organization.id, name: organization.name, slug: organization.slug }, role: membership.role, ...tokens };
 }
 
@@ -168,6 +176,7 @@ export async function rotateRefreshToken(token: string, metadata: { userAgent?: 
     await RefreshSession.updateMany({ familyId: existing.familyId, revokedAt: null }, { $set: { revokedAt: new Date() } });
     throw new AuthError("Refresh token was already used; sign in again", 401);
   }
+  await recordAuthenticationEvent({ organizationId: organization._id, actorUserId: user._id, action: "auth.session.refreshed", metadata });
   return {
     accessToken: signAccessToken({ sub: user.id, org: organization.id, membership: membership.id, sid: existing.familyId }),
     refreshToken: nextToken,
@@ -225,6 +234,7 @@ export async function switchUserOrganization(userId: string, organizationId: str
   const user = await User.findOne({ _id: userId, status: "active" });
   if (!user) throw new AuthError("Account is unavailable", 401);
   const tokens = await issueSession(user.id, organization.id, membership.id, metadata);
+  await recordAuthenticationEvent({ organizationId: organization._id, actorUserId: user._id, action: "auth.organization.switched", metadata: { toOrganizationId: organization.id }, ...metadata });
   return { organization: { id: organization.id, name: organization.name, slug: organization.slug }, role: membership.role, ...tokens };
 }
 
