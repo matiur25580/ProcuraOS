@@ -106,7 +106,6 @@ describe("authentication and tenant integration", () => {
 
   it("resets a password once and revokes existing sessions", async () => {
     const registered = await registerUser("reset@example.test", "Reset Tenant");
-    await auth.verifyEmail(registered.verificationToken);
     const login = await auth.login({ email: "reset@example.test", password: "CorrectHorseBattery9" }, metadata);
     const token = await auth.requestPasswordReset("reset@example.test");
     expect(token).toBeTruthy();
@@ -122,7 +121,6 @@ describe("authentication and tenant integration", () => {
 
   it("authenticates with bcrypt and rejects an incorrect password", async () => {
     const registered = await registerUser("login@example.test", "Login Tenant");
-    await auth.verifyEmail(registered.verificationToken);
 
     const result = await auth.login({
       email: "login@example.test",
