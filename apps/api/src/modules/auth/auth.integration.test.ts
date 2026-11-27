@@ -142,11 +142,14 @@ describe("authentication and tenant integration", () => {
       return Buffer.from(output);
     };
     const counter = Math.floor(Date.now() / 30_000);
-    const message = Buffer.alloc(8); message.writeBigUInt64BE(BigInt(counter));
-    const digest = (await import("node:crypto")).createHmac("sha1", decodeBase32(enrollment.secret)).update(message).digest();
-    const offset = digest[digest.length - 1]! & 15;
-    const binary = ((digest[offset]! & 127) << 24) | ((digest[offset + 1]! & 255) << 16) | ((digest[offset + 2]! & 255) << 8) | (digest[offset + 3]! & 255);
-    const code = String(binary % 1_000_000).padStart(6, "0");
+    const codeFor = async (offsetCounter: number) => {
+      const message = Buffer.alloc(8); message.writeBigUInt64BE(BigInt(counter + offsetCounter));
+      const digest = (await import("node:crypto")).createHmac("sha1", decodeBase32(enrollment.secret)).update(message).digest();
+      const offset = digest[digest.length - 1]! & 15;
+      const binary = ((digest[offset]! & 127) << 24) | ((digest[offset + 1]! & 255) << 16) | ((digest[offset + 2]! & 255) << 8) | (digest[offset + 3]! & 255);
+      return String(binary % 1_000_000).padStart(6, "0");
+    };
+    const code = await codeFor(0);
     const enabled = await auth.enableMfa(registered.user.id, registered.organization.id, code, metadata);
     expect(enabled.mfaEnabled).toBe(true);
     expect(enabled.recoveryCodes).toHaveLength(10);
@@ -154,10 +157,11 @@ describe("authentication and tenant integration", () => {
     expect(stored?.mfaSecretEncrypted).not.toContain(enrollment.secret);
     await expect(auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9" }, metadata))
       .rejects.toMatchObject({ statusCode: 401 });
-    const signedIn = await auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: code }, metadata);
+    const nextCode = await codeFor(1);
+    const signedIn = await auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: nextCode }, metadata);
     expect(signedIn.accessToken).toBeTruthy();
     const recovery = enabled.recoveryCodes[0]!;
-    await expect(auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: code }, metadata)).rejects.toMatchObject({ statusCode: 401 });
+    await expect(auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: nextCode }, metadata)).rejects.toMatchObject({ statusCode: 401 });
     const recovered = await auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: recovery }, metadata);
     expect(recovered.accessToken).toBeTruthy();
     await expect(auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: recovery }, metadata))
