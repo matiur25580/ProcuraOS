@@ -26,7 +26,8 @@ beforeAll(async () => {
   });
 
   process.env.NODE_ENV = "test";
-  process.env.MONGODB_URI = replicaSet.getUri("procuraos_auth_integration");
+  const mongoUri = replicaSet.getUri("procuraos_auth_integration");
+  process.env.MONGODB_URI = mongoUri;
   process.env.JWT_ACCESS_SECRET = "integration-test-secret-that-is-long-enough-32";
   process.env.ACCESS_TOKEN_TTL = "15m";
   process.env.REFRESH_TOKEN_TTL = "7d";
@@ -34,7 +35,7 @@ beforeAll(async () => {
 
   const mongooseModule = await import("mongoose");
   mongoose = mongooseModule.default;
-  await mongoose.connect(process.env.MONGODB_URI);
+  await mongoose.connect(mongoUri);
 
   auth = await import("./auth.service.js");
   ({ User } = await import("../../models/user.model.js"));
