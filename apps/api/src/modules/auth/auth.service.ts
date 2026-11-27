@@ -49,6 +49,11 @@ async function recordAuthenticationEvent(input: { organizationId?: unknown; acto
   });
 }
 
+async function recordLoginFailure(userId: unknown, reason: string, metadata: { ipAddress?: string; userAgent?: string }) {
+  const membership = await Membership.findOne({ userId, status: "active" }).select("organizationId");
+  await recordAuthenticationEvent({ organizationId: membership?.organizationId, actorUserId: userId, action: "auth.login.failed", outcome: "failure", metadata: { reason }, ...metadata });
+}
+
 function publicUser(user: { _id: { toString(): string }; name: string; email: string }) {
   return { id: user._id.toString(), name: user.name, email: user.email };
 }
@@ -121,13 +126,13 @@ export async function login(input: LoginInput, metadata: { userAgent?: string; i
     throw new AuthError("Invalid email or password", 401);
   }
   if (!user.emailVerifiedAt) {
-    await recordAuthenticationEvent({ actorUserId: user._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "email_unverified" }, ...metadata });
+    await recordLoginFailure(user._id, "email_unverified", metadata);
     throw new AuthError("Verify your email address before signing in", 403);
   }
   if (user.mfaEnabled) {
-    if (!input.otp) { await recordAuthenticationEvent({ actorUserId: user._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "mfa_required" }, ...metadata }); throw new AuthError("A one-time password or recovery code is required", 401); }
+    if (!input.otp) { await recordLoginFailure(user._id, "mfa_required", metadata); throw new AuthError("A one-time password or recovery code is required", 401); }
     const securedUser = await User.findById(user._id).select("+mfaSecretEncrypted +mfaRecoveryCodeHashes");
-    if (!securedUser || !(await consumeMfaCredential(securedUser, input.otp))) { await recordAuthenticationEvent({ actorUserId: user._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "invalid_mfa" }, ...metadata }); throw new AuthError("Invalid one-time password or recovery code", 401); }
+    if (!securedUser || !(await consumeMfaCredential(securedUser, input.otp))) { await recordLoginFailure(user._id, "invalid_mfa", metadata); throw new AuthError("Invalid one-time password or recovery code", 401); }
   }
   const membership = await Membership.findOne({ userId: user._id, status: "active" }).sort({ createdAt: 1 });
   if (!membership) throw new AuthError("No active organization membership was found", 403);
@@ -145,6 +150,7 @@ export async function rotateRefreshToken(token: string, metadata: { userAgent?: 
   const existing = await RefreshSession.findOne({ tokenHash: oldHash }).select("+tokenHash +replacedByHash");
   if (!existing) throw new AuthError("Refresh session is invalid or expired", 401);
   if (existing.revokedAt || existing.replacedByHash || existing.expiresAt <= new Date()) {
+    await recordAuthenticationEvent({ organizationId: existing.organizationId, actorUserId: existing.userId, action: "auth.session.reuse_detected", outcome: "failure", metadata: { familyId: existing.familyId }, ...metadata });
     await RefreshSession.updateMany({ familyId: existing.familyId, revokedAt: null }, { $set: { revokedAt: new Date() } });
     throw new AuthError("Refresh token reuse detected; sign in again", 401);
   }
