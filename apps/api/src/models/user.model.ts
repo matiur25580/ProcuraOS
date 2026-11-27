@@ -7,6 +7,7 @@ const userSchema = new Schema({
   status: { type: String, enum: ["active", "suspended"], default: "active", index: true },
   emailVerifiedAt: { type: Date, default: null },
   mfaEnabled: { type: Boolean, default: false, index: true },
+  mfaLastUsedCounter: { type: Number, default: -1, select: false },
   mfaSecretEncrypted: { type: String, default: null, select: false },
   mfaPendingSecretEncrypted: { type: String, default: null, select: false },
   mfaRecoveryCodeHashes: { type: [String], default: [], select: false },
