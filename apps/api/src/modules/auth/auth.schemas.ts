@@ -29,3 +29,4 @@ export const resetPasswordSchema = z.object({
 
 export const mfaEnableSchema = z.object({ code: z.string().regex(/^\d{6}$/) }).strict();
 export const mfaDisableSchema = z.object({ password: z.string().min(1).max(128), code: z.string().min(6).max(32) }).strict();
+\nexport const stepUpSchema = z.object({ password: z.string().min(1).max(128), otp: z.string().regex(/^(?:\\d{6}|[A-Z0-9-]{8,32})$/i).optional() }).strict();\n
