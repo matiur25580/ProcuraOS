@@ -25,8 +25,12 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
     setError("");
     setBusy(true);
     try {
-      if (isRegister) await signUp(name, email, password, organizationName);
-      else await signIn(email, password);
+      if (isRegister) {
+        await signUp(name, email, password, organizationName);
+        setRegistrationSubmitted(true);
+        return;
+      }
+      await signIn(email, password);
       const destination = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
       navigate(destination?.pathname ? `${destination.pathname}${destination.search ?? ""}` : "/", { replace: true });
     } catch (cause) {
