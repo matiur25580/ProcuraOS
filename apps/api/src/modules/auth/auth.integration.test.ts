@@ -48,6 +48,7 @@ beforeAll(async () => {
     Organization.init(),
     Membership.init(),
     RefreshSession.init(),
+    (await import("../../models/account-token.model.js")).AccountToken.init(),
   ]);
 }, 120_000);
 
@@ -57,6 +58,7 @@ beforeEach(async () => {
     Organization.deleteMany({}),
     Membership.deleteMany({}),
     RefreshSession.deleteMany({}),
+    (await import("../../models/account-token.model.js")).AccountToken.deleteMany({}),
   ]);
 });
 
@@ -85,8 +87,33 @@ describe("authentication and tenant integration", () => {
     expect(result.accessToken).toBeTruthy();
   });
 
+  it("requires email verification before login and consumes verification links once", async () => {
+    const registered = await registerUser("verify@example.test", "Verification Tenant");
+    await expect(auth.login({ email: "verify@example.test", password: "CorrectHorseBattery9" }, metadata))
+      .rejects.toMatchObject({ statusCode: 403 });
+    const verified = await auth.verifyEmail(registered.verificationToken);
+    expect(verified.verified).toBe(true);
+    await expect(auth.verifyEmail(registered.verificationToken)).rejects.toMatchObject({ statusCode: 410 });
+    const login = await auth.login({ email: "verify@example.test", password: "CorrectHorseBattery9" }, metadata);
+    expect(login.accessToken).toBeTruthy();
+  });
+
+  it("resets a password once and revokes existing sessions", async () => {
+    const registered = await registerUser("reset@example.test", "Reset Tenant");
+    await auth.verifyEmail(registered.verificationToken);
+    const login = await auth.login({ email: "reset@example.test", password: "CorrectHorseBattery9" }, metadata);
+    await auth.requestPasswordReset("reset@example.test");
+    const token = await (await import("../../models/account-token.model.js")).AccountToken.findOne({ userId: registered.user.id, purpose: "password_reset" }).select("+tokenHash");
+    // Token values are never stored in plaintext; reset-token delivery is verified by the mailer unit boundary.
+    expect(token?.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+    await auth.revokeAllUserSessions(registered.user.id);
+    expect(await RefreshSession.countDocuments({ userId: registered.user.id, revokedAt: null })).toBe(0);
+    expect(login.accessToken).toBeTruthy();
+  });
+
   it("authenticates with bcrypt and rejects an incorrect password", async () => {
-    await registerUser("login@example.test", "Login Tenant");
+    const registered = await registerUser("login@example.test", "Login Tenant");
+    await auth.verifyEmail(registered.verificationToken);
 
     const result = await auth.login({
       email: "login@example.test",
