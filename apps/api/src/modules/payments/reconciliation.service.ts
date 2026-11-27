@@ -51,8 +51,9 @@ export async function matchStatementLine(org: string, actor: string, lineId: str
    matched = updated;
   });
  } finally { await session.endSession(); }
- if (!matched) throw new PaymentError("Reconciliation could not be completed", 409);
- return matched;
+ const result = matched as InstanceType<typeof BankStatementLine> | null;
+ if (!result) throw new PaymentError("Reconciliation could not be completed", 409);
+ return result;
 }
 export async function getPaymentReport(org: string) {
  const payments = await SupplierPayment.find({ organizationId: org }).select("amountMinor currency status dueDate paidAt").lean();
