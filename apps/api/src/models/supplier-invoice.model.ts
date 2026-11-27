@@ -11,6 +11,8 @@ const schema = new Schema({
  invoiceDate: { type: Date, required: true }, dueDate: { type: Date, default: null },
  items: { type: [line], required: true, validate: [(v: unknown[]) => v.length > 0 && v.length <= 30, "An invoice must contain 1–30 lines"] },
  subtotalMinor: { type: Number, required: true, min: 0 }, taxMinor: { type: Number, required: true, min: 0, default: 0 }, totalMinor: { type: Number, required: true, min: 0 },
+ // Incremented transactionally to serialize concurrent payment-allocation requests.
+ paymentAllocationVersion: { type: Number, required: true, default: 0, min: 0 },
  status: { type: String, enum: ["needs_review", "matched", "approved", "rejected"], default: "needs_review", index: true },
  matchFindings: { type: [finding], default: [] }, notes: { type: String, trim: true, maxlength: 2000, default: "" },
  submittedBy: { type: Schema.Types.ObjectId, ref: "User", required: true }, submittedAt: { type: Date, default: Date.now },
