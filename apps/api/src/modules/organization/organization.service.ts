@@ -265,11 +265,11 @@ export async function listSessions(userId: string, organizationId: string, curre
   }));
 }
 
-export async function revokeSession(userId: string, organizationId: string, familyId: string) {
+export async function revokeSession(userId: string, organizationId: string, familyId: string, metadata: { ipAddress?: string; userAgent?: string } = {}) {
   const result = await RefreshSession.updateMany(
     { userId, organizationId, familyId, revokedAt: null },
     { $set: { revokedAt: new Date() } },
   );
   if (result.modifiedCount === 0) throw new OrganizationError("Active session was not found", 404);
-  await audit({ organizationId, actorUserId: userId, action: "auth.session.revoked", targetType: "session", targetId: familyId, metadata: { scope: "single_session" } });
+  await audit({ organizationId, actorUserId: userId, action: "auth.session.revoked", targetType: "session", targetId: familyId, metadata: { scope: "single_session" }, ...metadata });
 }
