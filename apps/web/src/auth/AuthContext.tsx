@@ -45,11 +45,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUp(name: string, email: string, password: string, organizationName: string) {
-    const result = await apiRequest<SessionData & { accessToken: string }>("/auth/register", {
+    await apiRequest<{ verificationRequired: boolean }>("/auth/register", {
       method: "POST", body: JSON.stringify({ name, email, password, organizationName }),
     }, false);
-    setAccessToken(result.accessToken);
-    setSession({ user: result.user, organization: result.organization, role: result.role });
   }
 
   async function updateProfile(name: string) {
