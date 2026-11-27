@@ -16,10 +16,10 @@ import {
 } from "./invoice.service.js";
 
 let replicaSet: MongoMemoryReplSet;
-const actorId = new Types.ObjectId();
 const metadata = { ipAddress: "127.0.0.1", userAgent: "ProcuraOS invoice integration test" };
 
 async function createFixture(suffix: string) {
+  const actorId = new Types.ObjectId();
   const user = await User.create({
     _id: actorId,
     name: "Finance Operator",
