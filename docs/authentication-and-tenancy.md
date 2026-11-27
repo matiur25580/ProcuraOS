@@ -45,15 +45,27 @@ Use `requirePermission("domain:action")` on each business route. Add new permiss
 | POST | `/api/v1/auth/organizations` | Create another organization membership |
 | POST | `/api/v1/auth/switch-organization` | Switch to an organization the user belongs to |
 
+## Integration tests
+
+`apps/api/src/modules/auth/auth.integration.test.ts` starts a disposable single-node MongoDB replica set with WiredTiger. It exercises persisted registration records, bcrypt verification, login, refresh rotation and replay revocation, logout-all, and organization membership enforcement against real MongoDB collections and indexes. The test manages its own replica-set lifecycle and does not use a developer database.
+
+Run it with the API workspace test command:
+
+```bash
+npm run test -w @procuraos/api
+```
+
+The first run may download the MongoDB binary used by `mongodb-memory-server`. CI runs on Node.js 22 and executes the same test suite.
+
 ## Local configuration
 
 Set `JWT_ACCESS_SECRET` to a cryptographically random secret of at least 32 characters. Configure `ACCESS_TOKEN_TTL` (default `15m`), `REFRESH_TOKEN_TTL` (default `7d`) and `WEB_ORIGIN` to the exact trusted frontend origin. In production, serve over HTTPS so the refresh cookie is marked Secure. Never store access tokens in localStorage.
 
-## Security follow-ups before production
+## Remaining production work
 
+- Registration and organization creation currently use compensating cleanup, not a multi-document transaction. Keep production rollout blocked until the deployment uses a replica set and the workflows are migrated to transactions or a durable outbox.
 - Add email verification, password reset, MFA and account recovery.
-- Add a replica-set-backed transaction strategy for multi-document registration and organization creation.
 - Add a cross-tab refresh coordination strategy or carefully designed rotation grace policy.
 - Add audit events for authentication, session revocation and organization switching.
-- Add integration tests against a disposable MongoDB replica set and run dependency/security scanning.
+- Extend replica-set tests to API-level end-to-end tests, failure injection and concurrency/race scenarios.
 - Use a shared rate-limit store when deploying multiple API instances.
