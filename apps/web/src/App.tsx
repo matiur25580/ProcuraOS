@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { useAuth } from "./auth/AuthContext";
 import { AuthPage } from "./pages/AuthPage";
+import { AccountActionPage } from "./pages/AccountActionPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { OrganizationAdminPage } from "./pages/OrganizationAdminPage";
 import { AcceptInvitationPage } from "./pages/AcceptInvitationPage";
@@ -15,6 +16,7 @@ export default function App() {
  return <Routes>
   <Route path="/supplier-quote/:rfqId" element={<SupplierQuotePage />} />
   <Route path="/login" element={<AuthPage mode="login" />} /><Route path="/register" element={<AuthPage mode="register" />} />
+  <Route path="/verify-email" element={<AccountActionPage mode="verify" />} /><Route path="/forgot-password" element={<AccountActionPage mode="forgot" />} /><Route path="/reset-password" element={<AccountActionPage mode="reset" />} />
   <Route element={<ProtectedRoute />}>
    <Route path="/" element={<DashboardPage />} /><Route path="/settings" element={<OrganizationAdminPage />} />
    <Route path="/accept-invite" element={<AcceptInvitationPage />} /><Route path="/requisitions" element={<RequisitionsPage />} />
