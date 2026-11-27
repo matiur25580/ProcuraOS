@@ -29,7 +29,7 @@ beforeEach(async () => {
 afterAll(async () => { await mongoose.disconnect(); await repl.stop(); });
 describe("bank reconciliation and payment reporting", () => {
  it("imports a statement line idempotently and matches exact settled payment values", async () => {
-  const payment = await scheduleSupplierPayment(org.toString(), actor.toString(), { invoiceId: invoice.toString(), paymentMethod: "bank_transfer" }, meta);
+  const payment = await scheduleSupplierPayment(org.toString(), actor.toString(), { invoiceId: invoice.toString(), amountMinor: 10000, idempotencyKey: "recon-payment-0001", paymentMethod: "bank_transfer" }, meta);
   await settleSupplierPayment(org.toString(), actor.toString(), payment.id, "UTR-RECON-001", undefined, meta);
   const input = { bankAccountLabel: "Operating account", transactionId: "BANK-TX-001", transactionDate: new Date().toISOString(), amountMinor: 10000, currency: "INR", reference: "UTR-RECON-001", description: "Supplier settlement" };
   const line = await importStatementLine(org.toString(), actor.toString(), input, meta);
@@ -46,7 +46,7 @@ describe("bank reconciliation and payment reporting", () => {
   await expect(matchStatementLine(org.toString(), actor.toString(), line.id, payment.id, meta)).rejects.toBeInstanceOf(PaymentError);
  });
  it("keeps financial totals separated by currency and reports overdue ageing", async () => {
-  const payment = await scheduleSupplierPayment(org.toString(), actor.toString(), { invoiceId: invoice.toString(), paymentMethod: "cash" }, meta);
+  const payment = await scheduleSupplierPayment(org.toString(), actor.toString(), { invoiceId: invoice.toString(), amountMinor: 10000, idempotencyKey: "recon-payment-0002", paymentMethod: "cash" }, meta);
   await SupplierPayment.updateOne({ _id: payment.id }, { $set: { dueDate: new Date(Date.now() - 40 * 86400000) } });
   const report = await getPaymentReport(org.toString());
   expect(report.currencies).toHaveLength(1);
