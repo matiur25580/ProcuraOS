@@ -8,7 +8,8 @@ type Member = { membershipId: string; userId: string; name: string; email: strin
 type Invitation = { id: string; email: string; role: string; expiresAt: string; createdAt: string };
 type AuditEvent = { id: string; action: string; targetType: string; actor: { name: string; email: string } | null; createdAt: string };
 type Session = { id: string; current: boolean; userAgent: string; ipAddress: string | null; createdAt: string; expiresAt: string };
-type Organization = { id: string; name: string; slug: string; status: string };\ntype MfaSetup = { secret: string; otpauthUrl: string };
+type Organization = { id: string; name: string; slug: string; status: string };
+type MfaSetup = { secret: string; otpauthUrl: string };
 
 const roles = ["admin", "procurement_manager", "procurement_officer", "finance_manager", "auditor"];
 const roleLabel = (role: string) => role.replaceAll("_", " ");
@@ -183,7 +184,7 @@ export function OrganizationAdminPage() {
             {!mfaEnabled && !mfaSetup && <button className="admin-primary" type="button" onClick={() => void beginMfaSetup()}>Set up authenticator</button>}
             {mfaSetup && <form className="mfa-setup" onSubmit={confirmMfaSetup}><p>Enter this secret into your authenticator app, or use the provisioning URI:</p><code>{mfaSetup.secret}</code><textarea readOnly value={mfaSetup.otpauthUrl} rows={2} aria-label="Authenticator provisioning URI" /><label>6-digit authenticator code<input inputMode="numeric" autoComplete="one-time-code" value={mfaCode} onChange={event => setMfaCode(event.target.value)} pattern="[0-9]{6}" maxLength={6} required /></label><button className="admin-primary" type="submit">Confirm and enable MFA</button></form>}
             {mfaEnabled && <form className="mfa-setup" onSubmit={turnOffMfa}><label>Account password<input type="password" autoComplete="current-password" value={mfaPassword} onChange={event => setMfaPassword(event.target.value)} required /></label><label>Authenticator or recovery code<input value={mfaCode} onChange={event => setMfaCode(event.target.value)} required /></label><button className="danger-text" type="submit">Disable MFA</button></form>}
-            {recoveryCodes.length > 0 && <div className="recovery-codes"><strong>Save these recovery codes now</strong><p>Each code can be used once. Store them somewhere secure.</p><pre>{recoveryCodes.join("\\n")}</pre><button type="button" onClick={() => void navigator.clipboard.writeText(recoveryCodes.join("\\n"))}>Copy recovery codes</button></div>}
+            {recoveryCodes.length > 0 && <div className="recovery-codes"><strong>Save these recovery codes now</strong><p>Each code can be used once. Store them somewhere secure.</p><pre>{recoveryCodes.join("\n")}</pre><button type="button" onClick={() => void navigator.clipboard.writeText(recoveryCodes.join("\n"))}>Copy recovery codes</button></div>}
           </section>
           <section className="admin-panel"><div className="panel-title"><div><h2>Active sessions</h2><p>Sessions associated with your current organization.</p></div></div>{sessions.length ? <div className="session-list">{sessions.map(item => <div className="session-row" key={item.id}><div><strong>{item.userAgent}</strong><span>{item.ipAddress ?? "IP unavailable"} · started {new Date(item.createdAt).toLocaleString()}</span></div><div className="session-actions">{item.current ? <span className="current-session">Current session</span> : <button className="danger-text" onClick={() => void revokeSession(item.id)}>Revoke</button>}</div></div>)}</div> : <p className="empty-state">No active sessions found.</p>}</section>
         </>}
