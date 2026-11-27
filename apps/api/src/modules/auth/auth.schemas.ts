@@ -18,3 +18,10 @@ export const updateProfileSchema = z.object({ name: z.string().trim().min(2).max
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+
+export const verifyEmailSchema = z.object({ token: z.string().min(32).max(256) }).strict();
+export const forgotPasswordSchema = z.object({ email: z.string().trim().email().max(254) }).strict();
+export const resetPasswordSchema = z.object({
+  token: z.string().min(32).max(256),
+  password: z.string().min(12).max(128).regex(/[a-z]/).regex(/[A-Z]/).regex(/[0-9]/),
+}).strict();
