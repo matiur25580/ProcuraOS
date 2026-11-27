@@ -17,8 +17,7 @@ function clearRefreshCookie(res: Response) { res.clearCookie("procuraos_refresh"
 
 export async function registerController(req: Request, res: Response) {
   const result = await register(req.body as RegisterInput, metadata(req));
-  setRefreshCookie(res, result.refreshToken);
-  res.status(201).json({ success: true, data: { user: result.user, organization: result.organization, role: result.role, accessToken: result.accessToken } });
+  res.status(201).json({ success: true, data: { user: result.user, organization: result.organization, role: result.role, verificationRequired: result.verificationRequired } });
 }
 export async function loginController(req: Request, res: Response) {
   const result = await login(req.body as LoginInput, metadata(req));
