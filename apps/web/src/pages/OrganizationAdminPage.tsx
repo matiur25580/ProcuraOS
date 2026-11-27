@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Building2, ClipboardList, Copy, MailPlus, RefreshCw, Shield, Trash2, UserRound, Users } from "lucide-react";
 import { Link } from "react-router-dom";
-import { apiRequest } from "../lib/api";
+import { apiRequest, requestStepUpToken } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 
 type Member = { membershipId: string; userId: string; name: string; email: string; role: string; status: "active" | "suspended"; accountStatus: string; joinedAt: string };
@@ -58,7 +58,8 @@ export function OrganizationAdminPage() {
   async function saveOrganization(event: FormEvent) {
     event.preventDefault(); setError(""); setNotice("");
     try {
-      const result = await apiRequest<{ organization: Organization }>("/organization", { method: "PATCH", body: JSON.stringify({ name }) });
+      const stepUpToken = await requestStepUpToken(); if (!stepUpToken) return;
+      const result = await apiRequest<{ organization: Organization }>("/organization", { method: "PATCH", headers: { "x-step-up-token": stepUpToken }, body: JSON.stringify({ name }) });
       setOrganization(result.organization); setNotice("Organization details saved.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save organization"); }
   }
@@ -74,8 +75,9 @@ export function OrganizationAdminPage() {
   async function invite(event: FormEvent) {
     event.preventDefault(); setError(""); setNotice(""); setInviteUrl("");
     try {
+      const stepUpToken = await requestStepUpToken(); if (!stepUpToken) return;
       const result = await apiRequest<{ invitation: { id: string; invitationToken: string } }>("/organization/invitations", {
-        method: "POST", body: JSON.stringify({ email, role: inviteRole }),
+        method: "POST", headers: { "x-step-up-token": stepUpToken }, body: JSON.stringify({ email, role: inviteRole }),
       });
       const url = new URL("/accept-invite", window.location.origin);
       url.hash = new URLSearchParams({ token: result.invitation.invitationToken }).toString();
@@ -88,7 +90,8 @@ export function OrganizationAdminPage() {
   async function changeMember(member: Member, changes: { role?: string; status?: string }) {
     setError(""); setNotice("");
     try {
-      await apiRequest(`/organization/members/${member.membershipId}`, { method: "PATCH", body: JSON.stringify(changes) });
+      const stepUpToken = await requestStepUpToken(); if (!stepUpToken) return;
+      await apiRequest(`/organization/members/${member.membershipId}`, { method: "PATCH", headers: { "x-step-up-token": stepUpToken }, body: JSON.stringify(changes) });
       setNotice(`Updated access for ${member.name}.`); await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to update member"); }
   }
@@ -96,13 +99,14 @@ export function OrganizationAdminPage() {
   async function removeMember(member: Member) {
     if (!window.confirm(`Remove ${member.name} from this organization?`)) return;
     try {
-      await apiRequest(`/organization/members/${member.membershipId}`, { method: "DELETE" });
+      const stepUpToken = await requestStepUpToken(); if (!stepUpToken) return;
+      await apiRequest(`/organization/members/${member.membershipId}`, { method: "DELETE", headers: { "x-step-up-token": stepUpToken } });
       setNotice("Member removed and their sessions in this organization revoked."); await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to remove member"); }
   }
 
   async function revokeInvitation(id: string) {
-    try { await apiRequest(`/organization/invitations/${id}`, { method: "DELETE" }); setNotice("Invitation revoked."); await load(); }
+    try { const stepUpToken = await requestStepUpToken(); if (!stepUpToken) return; await apiRequest(`/organization/invitations/${id}`, { method: "DELETE", headers: { "x-step-up-token": stepUpToken } }); setNotice("Invitation revoked."); await load(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to revoke invitation"); }
   }
 
