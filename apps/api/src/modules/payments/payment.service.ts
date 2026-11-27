@@ -47,21 +47,18 @@ export async function scheduleSupplierPayment(org: string, actor: string, input:
 export async function settleSupplierPayment(org: string, actor: string, id: string, externalReference: string, paidAt: string | undefined, meta: Meta) {
  if (!validId(id)) throw new PaymentError("Invalid payment identifier");
  const session = await mongoose.startSession();
- let updated: InstanceType<typeof SupplierPayment> | null = null;
+ let settled: InstanceType<typeof SupplierPayment> | null = null;
  try {
   await session.withTransaction(async () => {
-   const payment = await SupplierPayment.findOneAndUpdate(
-    { _id: id, organizationId: org, status: "scheduled" },
-    { $set: { status: "paid", externalReference, paidAt: paidAt ? new Date(paidAt) : new Date(), settledBy: actor } },
-    { new: true, runValidators: true, session },
-   );
+   const payment = await SupplierPayment.findOneAndUpdate({ _id: id, organizationId: org, status: "scheduled" }, { $set: { status: "paid", externalReference, paidAt: paidAt ? new Date(paidAt) : new Date(), settledBy: actor } }, { new: true, runValidators: true, session });
    if (!payment) throw new PaymentError("Only a scheduled payment can be marked as paid", 409);
    await audit(org, actor, "supplier_payment.settled", payment.id, { invoiceNumber: payment.invoiceNumber, amountMinor: payment.amountMinor, currency: payment.currency, externalReference }, meta, session);
-   updated = payment;
+   settled = payment;
   });
  } finally { await session.endSession(); }
- if (!updated) throw new PaymentError("Payment could not be settled", 409);
- return updated;
+ const result = settled as InstanceType<typeof SupplierPayment> | null;
+ if (!result) throw new PaymentError("Payment could not be settled", 409);
+ return result;
 }
 export async function failSupplierPayment(org: string, actor: string, id: string, reason: string, meta: Meta) {
  if (!validId(id)) throw new PaymentError("Invalid payment identifier");
