@@ -44,12 +44,12 @@ export async function logoutAllController(req: Request, res: Response) {
 }
 export async function meController(req: Request, res: Response) {
   const [user, membership, organization] = await Promise.all([
-    User.findById(req.auth!.userId).select("name email"),
+    User.findById(req.auth!.userId).select("name email mfaEnabled"),
     Membership.findById(req.auth!.membershipId).select("role"),
     Organization.findById(req.auth!.organizationId).select("name slug"),
   ]);
   if (!user || !membership || !organization) throw new AuthError("Account context is unavailable", 401);
-  res.status(200).json({ success: true, data: { user: { id: user.id, name: user.name, email: user.email }, organization: { id: organization.id, name: organization.name, slug: organization.slug }, role: membership.role } });
+  res.status(200).json({ success: true, data: { user: { id: user.id, name: user.name, email: user.email, mfaEnabled: user.mfaEnabled }, organization: { id: organization.id, name: organization.name, slug: organization.slug }, role: membership.role } });
 }
 export async function createOrganizationController(req: Request, res: Response) {
   const organization = await createOrganizationForUser(req.auth!.userId, req.body.name as string);
