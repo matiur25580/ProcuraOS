@@ -31,7 +31,7 @@ function setupActiveTenant() {
     sid: "session-family-a",
   });
   mocks.userFindOne.mockReturnValue({
-    select: vi.fn().mockResolvedValue({ id: "user-a" }),
+    select: vi.fn().mockResolvedValue({ id: "user-a", emailVerifiedAt: new Date() }),
   });
   mocks.membershipFindOne.mockResolvedValue(membership);
   mocks.organizationFindOne.mockReturnValue({
@@ -99,6 +99,21 @@ describe("authenticate tenant context", () => {
     await authenticate(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("rejects unverified accounts before allowing tenant access", async () => {
+    setupActiveTenant();
+    mocks.userFindOne.mockReturnValue({
+      select: vi.fn().mockResolvedValue({ id: "user-a", emailVerifiedAt: null }),
+    });
+    const req = { header: vi.fn().mockReturnValue("Bearer signed-token") } as unknown as Request;
+    const res = makeResponse();
+    const next = vi.fn();
+
+    await authenticate(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
     expect(next).not.toHaveBeenCalled();
   });
 
