@@ -7,7 +7,7 @@ import { Supplier } from "../../models/supplier.model.js";
 import { SupplierInvoice } from "../../models/supplier-invoice.model.js";
 import { SupplierPayment } from "../../models/supplier-payment.model.js";
 import { User } from "../../models/user.model.js";
-import { PaymentError, cancelSupplierPayment, listSupplierPayments, scheduleSupplierPayment, settleSupplierPayment } from "./payment.service.js";
+import { PaymentError, cancelSupplierPayment, failSupplierPayment, listSupplierPayments, scheduleSupplierPayment, settleSupplierPayment } from "./payment.service.js";
 let replicaSet: MongoMemoryReplSet;
 let orgId: Types.ObjectId, userId: Types.ObjectId, invoiceId: Types.ObjectId;
 const meta = { ipAddress: "127.0.0.1", userAgent: "payment integration test" };
@@ -56,8 +56,10 @@ describe("supplier payment lifecycle", () => {
    .rejects.toMatchObject({ statusCode: 409 });
  });
  it("releases reserved balance when a scheduled allocation is cancelled or failed", async () => {
-  const cancelled = await scheduleSupplierPayment(orgId.toString(), userId.toString(), scheduleInput({ amountMinor: 9000 }), meta);
+  const cancelled = await scheduleSupplierPayment(orgId.toString(), userId.toString(), scheduleInput({ amountMinor: 4500 }), meta);
   await cancelSupplierPayment(orgId.toString(), userId.toString(), cancelled.id, meta);
+  const failed = await scheduleSupplierPayment(orgId.toString(), userId.toString(), scheduleInput({ amountMinor: 4500 }), meta);
+  await failSupplierPayment(orgId.toString(), userId.toString(), failed.id, "Supplier bank details rejected", meta);
   const next = await scheduleSupplierPayment(orgId.toString(), userId.toString(), scheduleInput({ amountMinor: 11800 }), meta);
   expect(next.status).toBe("scheduled");
  });

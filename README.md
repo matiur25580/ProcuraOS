@@ -23,8 +23,9 @@ ProcuraOS is a multi-tenant procurement operations platform designed to connect 
 - [x] Supplier invoice submission, PO/receipt three-way matching and finance approval.
 - [x] Controlled supplier payment scheduling and externally executed settlement recording.
 - [x] Tenant-scoped bank statement line registration, exact-match reconciliation and currency-separated payment reporting.
+- [x] Multiple partial/final invoice payment allocations with idempotency, concurrency-safe balance reservations and settlement history.
 
-The requisition workspace is available at /requisitions, supplier sourcing at /suppliers, purchase orders at /purchase-orders, invoice controls at /invoices, and payment controls at /payments.
+The requisition workspace is available at /requisitions, supplier sourcing at /suppliers, purchase orders at /purchase-orders, invoice controls at /invoices, payment allocations at /payments, and bank reconciliation/reporting at /reconciliation.
 
 ## Engineering principles
 - Enforce tenant scope and authorization in the API; never trust client-supplied organization IDs.
@@ -46,10 +47,11 @@ Run npm run typecheck, npm run test and npm run build from the repository root. 
 - [x] Invoice ingestion and three-way matching
 - [x] Controlled payment lifecycle and settlement recording
 - [x] Manual bank statement reconciliation and payment ageing report
-- [ ] Partial payments, payment allocations, fees and split settlements
+- [x] Partial payments and payment allocations
+- [ ] Fees, split bank settlements and FX handling
 - [ ] Bank statement CSV ingestion and supported bank integrations
 - [ ] Contract lifecycle, supplier delivery integrations and notifications
 - [ ] Audit analytics, AI-assisted procurement insights with human oversight
 - [ ] Integration testing, observability and production deployment
 
-See docs/purchase-orders-goods-receipts.md, docs/supplier-onboarding-rfq.md, docs/invoice-management-three-way-matching.md and docs/payment-reconciliation-financial-reporting.md for workflow rules, API contracts and known limitations.
+See docs/purchase-orders-goods-receipts.md, docs/supplier-onboarding-rfq.md, docs/invoice-management-three-way-matching.md and docs/payment-reconciliation-financial-reporting.md and docs/partial-payments-and-allocations.md for workflow rules, API contracts, migration instructions and known limitations.
