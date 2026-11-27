@@ -36,7 +36,7 @@ async function uniqueSlug(name: string): Promise<string> {
   return slug;
 }
 
-async function recordAuthenticationEvent(input: { organizationId?: unknown; actorUserId?: unknown; action: string; outcome?: "success" | "failure"; metadata?: Record<string, unknown>; ipAddress?: string; userAgent?: string }) {
+async function recordAuthenticationEvent(input: { organizationId?: mongoose.Types.ObjectId | string | null; actorUserId?: mongoose.Types.ObjectId | string | null; action: string; outcome?: "success" | "failure"; metadata?: Record<string, unknown>; ipAddress?: string; userAgent?: string }) {
   await AuditEvent.create({
     organizationId: input.organizationId ?? null,
     actorUserId: input.actorUserId ?? null,
