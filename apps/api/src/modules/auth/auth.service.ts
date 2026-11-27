@@ -286,7 +286,7 @@ export async function resetPassword(token: string, password: string) {
 }
 
 const MFA_ISSUER = "ProcuraOS";
-function mfaKey() { return createHash("sha256").update(env.JWT_ACCESS_SECRET).digest(); }
+function mfaKey() { return env.MFA_ENCRYPTION_KEY ? Buffer.from(env.MFA_ENCRYPTION_KEY, "hex") : createHash("sha256").update(env.JWT_ACCESS_SECRET).digest(); }
 function encryptMfaSecret(secret: string) {
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", mfaKey(), iv);
