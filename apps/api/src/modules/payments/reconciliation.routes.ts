@@ -1,0 +1,14 @@
+import { Router } from "express";
+import { z } from "zod";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requirePermission } from "../../middleware/authorize.js";
+import { requireStepUp } from "../../middleware/require-step-up.js";
+import { validateBody } from "../../middleware/validate.js";
+import { importStatementLineController, listReconciliationController, matchStatementLineController, paymentReportController } from "./reconciliation.controller.js";
+import { importStatementLineSchema } from "./reconciliation.schemas.js";
+export const reconciliationRouter = Router();
+reconciliationRouter.use(authenticate);
+reconciliationRouter.get("/", requirePermission("finance:read"), listReconciliationController);
+reconciliationRouter.post("/statement-lines", requirePermission("finance:pay"), validateBody(importStatementLineSchema), importStatementLineController);
+reconciliationRouter.post("/:lineId/match", requirePermission("finance:pay"), requireStepUp, validateBody(z.object({ paymentId: z.string().regex(/^[a-f\d]{24}$/i) }).strict()), matchStatementLineController);
+reconciliationRouter.get("/report", requirePermission("finance:read"), paymentReportController);
