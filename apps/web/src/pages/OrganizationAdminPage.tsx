@@ -111,7 +111,7 @@ export function OrganizationAdminPage() {
   }
 
   async function revokeSession(id: string) {
-    try { await apiRequest(`/auth/sessions/${id}`, { method: "DELETE" }); setNotice("Session revoked."); await load(); }
+    try { const stepUpToken = await requestStepUpToken(); if (!stepUpToken) return; await apiRequest(`/auth/sessions/${id}`, { method: "DELETE", headers: { "x-step-up-token": stepUpToken } }); setNotice("Session revoked."); await load(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to revoke session"); }
   }
 
