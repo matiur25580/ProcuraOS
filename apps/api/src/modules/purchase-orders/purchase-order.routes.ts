@@ -11,5 +11,5 @@ purchaseOrderRouter.get("/", requirePermission("procurement:read"), listPurchase
 purchaseOrderRouter.post("/", requirePermission("procurement:write"), validateBody(createPurchaseOrderSchema), createPurchaseOrderController);
 purchaseOrderRouter.post("/:purchaseOrderId/approve", requirePermission("finance:approve"), requireStepUp, approvePurchaseOrderController);
 purchaseOrderRouter.post("/:purchaseOrderId/issue", requirePermission("procurement:write"), requireStepUp, issuePurchaseOrderController);
-purchaseOrderRouter.post("/:purchaseOrderId/receipts", requirePermission("procurement:write"), validateBody(receiveGoodsSchema), receiveGoodsController);
+purchaseOrderRouter.post("/:purchaseOrderId/receipts", requirePermission("procurement:write"), requireStepUp, validateBody(receiveGoodsSchema), receiveGoodsController);
 purchaseOrderRouter.post("/:purchaseOrderId/revisions", requirePermission("procurement:write"), requireStepUp, validateBody(amendPurchaseOrderSchema), revisePurchaseOrderController);
