@@ -1,5 +1,5 @@
 import { z } from "zod";
-const objectId = z.string().regex(/^[a-f\\d]{24}$/i);
+const objectId = z.string().regex(/^[a-f\d]{24}$/i);
 export const submitInvoiceSchema = z.object({
  invoiceNumber: z.string().trim().min(1).max(80), purchaseOrderId: objectId,
  invoiceDate: z.string().datetime({ offset: true }), dueDate: z.string().datetime({ offset: true }).optional(),
