@@ -365,7 +365,6 @@ function matchingTotpCounter(secret: string, code: string): number | null {
   }
   return null;
 }
-function verifyTotp(secret: string, code: string) { return matchingTotpCounter(secret, code) !== null; }
 function recoveryHash(code: string) { return createHash("sha256").update(code.replace(/-/g, "").toUpperCase()).digest("hex"); }
 async function consumeMfaCredential(user: { _id?: unknown; mfaSecretEncrypted?: string | null; mfaRecoveryCodeHashes?: string[]; save(): Promise<unknown> }, code: string) {
   if (user.mfaSecretEncrypted) {
