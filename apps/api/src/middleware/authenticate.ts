@@ -22,11 +22,16 @@ export const authenticate: RequestHandler = async (req, res, next) => {
 
   try {
     const [user, membership, organization, activeSession] = await Promise.all([
-      User.findOne({ _id: claims.sub, status: "active" }).select("_id"),
+      User.findOne({ _id: claims.sub, status: "active" }).select("_id emailVerifiedAt"),
       Membership.findOne({ _id: claims.membership, userId: claims.sub, organizationId: claims.org, status: "active" }),
       Organization.findOne({ _id: claims.org, status: "active" }).select("_id"),
       RefreshSession.exists({ familyId: claims.sid, userId: claims.sub, organizationId: claims.org, revokedAt: null, expiresAt: { $gt: new Date() } }),
     ]);
+
+    if (user && !user.emailVerifiedAt) {
+      res.status(403).json({ success: false, error: { message: "Email verification is required" } });
+      return;
+    }
 
     if (!user || !membership || !organization || !activeSession) {
       res.status(401).json({ success: false, error: { message: "Session or organization membership is no longer active" } });
