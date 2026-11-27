@@ -6,6 +6,10 @@ const userSchema = new Schema({
   passwordHash: { type: String, required: true, select: false },
   status: { type: String, enum: ["active", "suspended"], default: "active", index: true },
   emailVerifiedAt: { type: Date, default: null },
+  mfaEnabled: { type: Boolean, default: false, index: true },
+  mfaSecretEncrypted: { type: String, default: null, select: false },
+  mfaPendingSecretEncrypted: { type: String, default: null, select: false },
+  mfaRecoveryCodeHashes: { type: [String], default: [], select: false },
   lastLoginAt: { type: Date },
 }, { timestamps: true });
 
