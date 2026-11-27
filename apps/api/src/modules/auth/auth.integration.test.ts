@@ -8,6 +8,8 @@ let User: typeof import("../../models/user.model.js").User;
 let Organization: typeof import("../../models/organization.model.js").Organization;
 let Membership: typeof import("../../models/membership.model.js").Membership;
 let RefreshSession: typeof import("../../models/refresh-session.model.js").RefreshSession;
+let StepUpGrant: typeof import("../../models/step-up-grant.model.js").StepUpGrant;
+let AuditEvent: typeof import("../../models/audit-event.model.js").AuditEvent;
 
 const metadata = { userAgent: "ProcuraOS integration test", ipAddress: "127.0.0.1" };
 
@@ -45,12 +47,16 @@ beforeAll(async () => {
   ({ Organization } = await import("../../models/organization.model.js"));
   ({ Membership } = await import("../../models/membership.model.js"));
   ({ RefreshSession } = await import("../../models/refresh-session.model.js"));
+  ({ StepUpGrant } = await import("../../models/step-up-grant.model.js"));
+  ({ AuditEvent } = await import("../../models/audit-event.model.js"));
 
   await Promise.all([
     User.init(),
     Organization.init(),
     Membership.init(),
     RefreshSession.init(),
+    StepUpGrant.init(),
+    AuditEvent.init(),
     (await import("../../models/account-token.model.js")).AccountToken.init(),
   ]);
 }, 120_000);
@@ -61,6 +67,8 @@ beforeEach(async () => {
     Organization.deleteMany({}),
     Membership.deleteMany({}),
     RefreshSession.deleteMany({}),
+    StepUpGrant.deleteMany({}),
+    AuditEvent.deleteMany({}),
     (await import("../../models/account-token.model.js")).AccountToken.deleteMany({}),
   ]);
 });
@@ -149,10 +157,30 @@ describe("authentication and tenant integration", () => {
     const signedIn = await auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: code }, metadata);
     expect(signedIn.accessToken).toBeTruthy();
     const recovery = enabled.recoveryCodes[0]!;
+    await expect(auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: code }, metadata)).rejects.toMatchObject({ statusCode: 401 });
     const recovered = await auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: recovery }, metadata);
     expect(recovered.accessToken).toBeTruthy();
     await expect(auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: recovery }, metadata))
       .rejects.toMatchObject({ statusCode: 401 });
+  });
+
+
+  it("issues short-lived, session-bound step-up grants and stores only their hashes", async () => {
+    const registered = await registerUser("stepup@example.test", "Step Up Tenant");
+    const session = await RefreshSession.findOne({ userId: registered.user.id }).sort({ createdAt: -1 });
+    const grant = await auth.issueStepUpGrant(registered.user.id, registered.organization.id, session!.familyId, "CorrectHorseBattery9", undefined, metadata);
+    const stored = await StepUpGrant.findOne({ userId: registered.user.id }).select("+tokenHash");
+    expect(grant.token).toBeTruthy();
+    expect(grant.expiresAt.getTime()).toBeGreaterThan(Date.now());
+    expect(stored?.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(stored?.tokenHash).not.toBe(grant.token);
+    const filter = {
+      tokenHash: (await import("node:crypto")).createHash("sha256").update(grant.token).digest("hex"),
+      userId: registered.user.id, organizationId: registered.organization.id,
+      sessionFamilyId: session!.familyId, consumedAt: null, expiresAt: { $gt: new Date() },
+    };
+    expect(await StepUpGrant.findOneAndUpdate(filter, { $set: { consumedAt: new Date() } }, { new: true })).not.toBeNull();
+    expect(await StepUpGrant.findOneAndUpdate(filter, { $set: { consumedAt: new Date() } }, { new: true })).toBeNull();
   });
 
   it("authenticates with bcrypt and rejects an incorrect password", async () => {
@@ -170,6 +198,8 @@ describe("authentication and tenant integration", () => {
       email: "login@example.test",
       password: "WrongPassword123",
     }, metadata)).rejects.toMatchObject({ statusCode: 401 });
+    const failureEvent = await AuditEvent.findOne({ action: "auth.login.failed", actorUserId: registered.user.id });
+    expect(failureEvent?.outcome).toBe("failure");
   });
 
   it("rotates refresh tokens and revokes the family when the old token is replayed", async () => {
