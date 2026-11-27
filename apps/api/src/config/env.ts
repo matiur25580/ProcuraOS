@@ -13,9 +13,18 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32, "JWT_ACCESS_SECRET must contain at least 32 characters"),
   ACCESS_TOKEN_TTL: durationSchema.default("15m"),
   REFRESH_TOKEN_TTL: durationSchema.default("7d"),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  EMAIL_FROM: z.string().email().optional(),
 });
 
-const parsed = envSchema.safeParse(process.env);
+const parsed = envSchema.superRefine((value, ctx) => {
+  if (value.NODE_ENV === "production" && (!value.SMTP_HOST || !value.SMTP_USER || !value.SMTP_PASS || !value.EMAIL_FROM)) {
+    ctx.addIssue({ code: "custom", message: "SMTP_HOST, SMTP_USER, SMTP_PASS and EMAIL_FROM are required in production", path: ["SMTP_HOST"] });
+  }
+}).safeParse(process.env);
 if (!parsed.success) {
   console.error("Invalid environment configuration:", parsed.error.flatten().fieldErrors);
   process.exit(1);
