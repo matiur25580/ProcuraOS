@@ -1,6 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { authenticate } from "../../middleware/authenticate.js";
+import { requireStepUp } from "../../middleware/require-step-up.js";
 import { requireTrustedOrigin } from "../../middleware/require-trusted-origin.js";
 import { validateBody } from "../../middleware/validate.js";
 import { createOrganizationController, listOrganizationsController, loginController, logoutAllController, logoutController, meController, refreshController, registerController, switchOrganizationController, updateProfileController, listSessionsController, revokeSessionController, verifyEmailController, forgotPasswordController, resetPasswordController, setupMfaController, enableMfaController, disableMfaController, stepUpController } from "./auth.controller.js";
@@ -23,7 +24,7 @@ authRouter.post("/logout-all", authenticate, logoutAllController);
 authRouter.get("/me", authenticate, meController);
 authRouter.patch("/me", authenticate, validateBody(updateProfileSchema), updateProfileController);
 authRouter.get("/sessions", authenticate, listSessionsController);
-authRouter.delete("/sessions/:sessionId", authenticate, revokeSessionController);
+authRouter.delete("/sessions/:sessionId", authenticate, requireStepUp, revokeSessionController);
 authRouter.get("/organizations", authenticate, listOrganizationsController);
 authRouter.post("/organizations", authenticate, validateBody(createOrganizationSchema), createOrganizationController);
 authRouter.post("/switch-organization", authenticate, validateBody(switchOrganizationSchema), switchOrganizationController);
