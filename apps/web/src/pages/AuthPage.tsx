@@ -13,6 +13,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
   const [organizationName, setOrganizationName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [registrationSubmitted, setRegistrationSubmitted] = useState(false);
@@ -30,7 +31,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
         setRegistrationSubmitted(true);
         return;
       }
-      await signIn(email, password);
+      await signIn(email, password, otp.trim() || undefined);
       const destination = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
       navigate(destination?.pathname ? `${destination.pathname}${destination.search ?? ""}` : "/", { replace: true });
     } catch (cause) {
@@ -62,6 +63,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
             {isRegister && <label>Organization name<input value={organizationName} onChange={e => setOrganizationName(e.target.value)} minLength={2} maxLength={140} required placeholder="Acme Corporation" /></label>}
             <label>Work email<input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@company.com" /></label>
             <label>Password<input type="password" autoComplete={isRegister ? "new-password" : "current-password"} value={password} onChange={e => setPassword(e.target.value)} minLength={isRegister ? 12 : 1} maxLength={128} required placeholder={isRegister ? "At least 12 characters" : "Your password"} /></label>
+            {!isRegister && <label>Authenticator code or recovery code <span className="optional-label">(if MFA is enabled)</span><input inputMode="text" autoComplete="one-time-code" value={otp} onChange={e => setOtp(e.target.value)} maxLength={32} placeholder="6-digit code or recovery code" /></label>}
             {isRegister && <p className="password-hint">Use at least 12 characters with uppercase, lowercase and a number.</p>}
             {error && <div className="auth-error" role="alert">{error}</div>}
             <button className="auth-submit" type="submit" disabled={busy}>{busy ? "Please wait…" : isRegister ? "Create secure workspace" : "Sign in"} <ArrowRight size={16} /></button>
