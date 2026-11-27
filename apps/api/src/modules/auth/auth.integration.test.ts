@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 
-let replicaSet: MongoMemoryReplSet;
-let mongoose: typeof import("mongoose").default;
+let replicaSet!: MongoMemoryReplSet;
+let mongoose!: typeof import("mongoose").default;
 let auth: typeof import("./auth.service.js");
 let User: typeof import("../../models/user.model.js").User;
 let Organization: typeof import("../../models/organization.model.js").Organization;
@@ -111,6 +111,22 @@ describe("authentication and tenant integration", () => {
 
     const sessions = await RefreshSession.find({ userId: registered.user.id });
     expect(sessions.length).toBe(2);
+    expect(sessions.every((session) => session.revokedAt !== null)).toBe(true);
+  });
+
+  it("fails closed when two requests race to rotate the same refresh token", async () => {
+    const registered = await registerUser("race@example.test", "Race Tenant");
+
+    const attempts = await Promise.allSettled([
+      auth.rotateRefreshToken(registered.refreshToken, metadata),
+      auth.rotateRefreshToken(registered.refreshToken, metadata),
+    ]);
+
+    expect(attempts.filter((attempt) => attempt.status === "fulfilled")).toHaveLength(1);
+    expect(attempts.filter((attempt) => attempt.status === "rejected")).toHaveLength(1);
+
+    const sessions = await RefreshSession.find({ userId: registered.user.id });
+    expect(sessions.length).toBeGreaterThanOrEqual(1);
     expect(sessions.every((session) => session.revokedAt !== null)).toBe(true);
   });
 
