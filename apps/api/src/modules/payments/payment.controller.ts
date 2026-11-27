@@ -1,0 +1,8 @@
+import type { Request, Response } from "express";
+import { cancelSupplierPayment, failSupplierPayment, listSupplierPayments, scheduleSupplierPayment, settleSupplierPayment } from "./payment.service.js";
+function meta(req: Request) { return { ...(req.ip ? { ipAddress: req.ip } : {}), ...(req.get("user-agent") ? { userAgent: req.get("user-agent")! } : {}) }; }
+export async function listPaymentsController(req: Request, res: Response) { res.status(200).json({ success: true, data: { payments: await listSupplierPayments(req.auth!.organizationId) } }); }
+export async function schedulePaymentController(req: Request, res: Response) { const payment = await scheduleSupplierPayment(req.auth!.organizationId, req.auth!.userId, req.body, meta(req)); res.status(201).json({ success: true, data: { payment } }); }
+export async function settlePaymentController(req: Request, res: Response) { const payment = await settleSupplierPayment(req.auth!.organizationId, req.auth!.userId, String(req.params.paymentId ?? ""), req.body.externalReference, req.body.paidAt, meta(req)); res.status(200).json({ success: true, data: { payment } }); }
+export async function failPaymentController(req: Request, res: Response) { const payment = await failSupplierPayment(req.auth!.organizationId, req.auth!.userId, String(req.params.paymentId ?? ""), req.body.reason, meta(req)); res.status(200).json({ success: true, data: { payment } }); }
+export async function cancelPaymentController(req: Request, res: Response) { const payment = await cancelSupplierPayment(req.auth!.organizationId, req.auth!.userId, String(req.params.paymentId ?? ""), meta(req)); res.status(200).json({ success: true, data: { payment } }); }

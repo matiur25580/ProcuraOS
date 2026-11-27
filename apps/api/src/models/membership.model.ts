@@ -2,7 +2,7 @@ import { Schema, model } from "mongoose";
 
 export const ROLE_PERMISSIONS = {
   owner: ["*"],
-  admin: ["organization:read", "organization:update", "members:read", "members:manage", "procurement:read", "procurement:write", "suppliers:read", "suppliers:write", "finance:read", "finance:approve", "audit:read"],
+  admin: ["organization:read", "organization:update", "members:read", "members:manage", "procurement:read", "procurement:write", "suppliers:read", "suppliers:write", "finance:read", "finance:approve", "finance:pay", "audit:read"],
   procurement_manager: ["organization:read", "members:read", "procurement:read", "procurement:write", "suppliers:read", "suppliers:write", "finance:read", "audit:read"],
   procurement_officer: ["organization:read", "procurement:read", "procurement:write", "suppliers:read", "suppliers:write"],
   finance_manager: ["organization:read", "procurement:read", "finance:read", "finance:approve", "audit:read"],

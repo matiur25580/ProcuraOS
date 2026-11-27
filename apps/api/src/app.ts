@@ -11,6 +11,7 @@ import { requisitionRouter } from "./modules/requisitions/requisition.routes.js"
 import { supplierRouter } from "./modules/suppliers/supplier.routes.js";
 import { purchaseOrderRouter } from "./modules/purchase-orders/purchase-order.routes.js";
 import { invoiceRouter } from "./modules/invoices/invoice.routes.js";
+import { paymentRouter } from "./modules/payments/payment.routes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { notFoundHandler } from "./middleware/not-found.js";
 export const app = express();
@@ -23,4 +24,5 @@ app.use(env.API_PREFIX + "/auth", authRouter); app.use(env.API_PREFIX + "/organi
 app.use(env.API_PREFIX + "/requisitions", requisitionRouter); app.use(env.API_PREFIX, supplierRouter);
 app.use(env.API_PREFIX + "/purchase-orders", purchaseOrderRouter);
 app.use(env.API_PREFIX + "/invoices", invoiceRouter);
+app.use(env.API_PREFIX + "/payments", paymentRouter);
 app.use(notFoundHandler); app.use(errorHandler);

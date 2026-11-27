@@ -1,0 +1,14 @@
+import { Router } from "express";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requirePermission } from "../../middleware/authorize.js";
+import { requireStepUp } from "../../middleware/require-step-up.js";
+import { validateBody } from "../../middleware/validate.js";
+import { cancelPaymentController, failPaymentController, listPaymentsController, schedulePaymentController, settlePaymentController } from "./payment.controller.js";
+import { failPaymentSchema, schedulePaymentSchema, settlePaymentSchema } from "./payment.schemas.js";
+export const paymentRouter = Router();
+paymentRouter.use(authenticate);
+paymentRouter.get("/", requirePermission("finance:read"), listPaymentsController);
+paymentRouter.post("/", requirePermission("finance:pay"), validateBody(schedulePaymentSchema), schedulePaymentController);
+paymentRouter.post("/:paymentId/settle", requirePermission("finance:pay"), requireStepUp, validateBody(settlePaymentSchema), settlePaymentController);
+paymentRouter.post("/:paymentId/fail", requirePermission("finance:pay"), requireStepUp, validateBody(failPaymentSchema), failPaymentController);
+paymentRouter.post("/:paymentId/cancel", requirePermission("finance:pay"), requireStepUp, cancelPaymentController);
