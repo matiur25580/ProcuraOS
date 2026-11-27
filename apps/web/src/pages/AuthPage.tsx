@@ -15,8 +15,10 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [registrationSubmitted, setRegistrationSubmitted] = useState(false);
 
   if (user.id) return <Navigate to="/" replace />;
+  if (isRegister && registrationSubmitted) return <main className="auth-layout"><section className="auth-form-panel"><div className="auth-form-wrap"><div className="auth-form-icon"><LockKeyhole size={20} /></div><span className="eyebrow">CHECK YOUR INBOX</span><h2>Verify your email</h2><p className="auth-subtitle">Your workspace has been created. Follow the verification link sent to your email address before signing in.</p><p className="auth-switch"><Link to="/login">Continue to sign in</Link></p></div></section></main>;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
