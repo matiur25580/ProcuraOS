@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { createHash, randomBytes, createCipheriv, createDecipheriv, createHmac } from "node:crypto";
 import mongoose from "mongoose";
 import { AccountToken } from "../../models/account-token.model.js";
+import { StepUpGrant } from "../../models/step-up-grant.model.js";
 import { AuditEvent } from "../../models/audit-event.model.js";
 import { sendAccountEmail } from "../../services/email.service.js";
 import { randomUUID } from "node:crypto";
@@ -33,6 +34,19 @@ async function uniqueSlug(name: string): Promise<string> {
   let slug = base;
   for (let suffix = 1; await Organization.exists({ slug }); suffix += 1) slug = `${base}-${suffix}`;
   return slug;
+}
+
+async function recordAuthenticationEvent(input: { organizationId?: unknown; actorUserId?: unknown; action: string; outcome?: "success" | "failure"; metadata?: Record<string, unknown>; ipAddress?: string; userAgent?: string }) {
+  await AuditEvent.create({
+    organizationId: input.organizationId ?? null,
+    actorUserId: input.actorUserId ?? null,
+    action: input.action,
+    outcome: input.outcome ?? "success",
+    targetType: "authentication",
+    metadata: input.metadata ?? {},
+    ...(input.ipAddress ? { ipAddress: input.ipAddress } : {}),
+    ...(input.userAgent ? { userAgent: input.userAgent } : {}),
+  });
 }
 
 function publicUser(user: { _id: { toString(): string }; name: string; email: string }) {
@@ -101,12 +115,12 @@ export async function register(input: RegisterInput, _metadata: { userAgent?: st
 export async function login(input: LoginInput, metadata: { userAgent?: string; ipAddress?: string }) {
   const user = await User.findOne({ email: input.email.toLowerCase() }).select("+passwordHash");
   const valid = user ? await bcrypt.compare(input.password, user.passwordHash) : false;
-  if (!user || !valid || user.status !== "active") throw new AuthError("Invalid email or password", 401);
-  if (!user.emailVerifiedAt) throw new AuthError("Verify your email address before signing in", 403);
+  if (!user || !valid || user.status !== "active") {\n    const membership = user ? await Membership.findOne({ userId: user._id, status: "active" }).select("organizationId") : null;\n    await recordAuthenticationEvent({ organizationId: membership?.organizationId, actorUserId: user?._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "invalid_credentials" }, ...metadata });\n    throw new AuthError("Invalid email or password", 401);\n  }
+  if (!user.emailVerifiedAt) {\n    await recordAuthenticationEvent({ actorUserId: user._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "email_unverified" }, ...metadata });\n    throw new AuthError("Verify your email address before signing in", 403);\n  }
   if (user.mfaEnabled) {
-    if (!input.otp) throw new AuthError("A one-time password or recovery code is required", 401);
+    if (!input.otp) { await recordAuthenticationEvent({ actorUserId: user._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "mfa_required" }, ...metadata }); throw new AuthError("A one-time password or recovery code is required", 401); }
     const securedUser = await User.findById(user._id).select("+mfaSecretEncrypted +mfaRecoveryCodeHashes");
-    if (!securedUser || !(await consumeMfaCredential(securedUser, input.otp))) throw new AuthError("Invalid one-time password or recovery code", 401);
+    if (!securedUser || !(await consumeMfaCredential(securedUser, input.otp))) { await recordAuthenticationEvent({ actorUserId: user._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "invalid_mfa" }, ...metadata }); throw new AuthError("Invalid one-time password or recovery code", 401); }
   }
   const membership = await Membership.findOne({ userId: user._id, status: "active" }).sort({ createdAt: 1 });
   if (!membership) throw new AuthError("No active organization membership was found", 403);
@@ -378,4 +392,25 @@ export async function disableMfa(userId: string, organizationId: string, passwor
   user.mfaRecoveryCodeHashes = [];
   await user.save();
   await recordMfaAudit(organizationId, userId, "auth.mfa.disabled", metadata);
+}
+
+const STEP_UP_LIFETIME_MS = 5 * 60 * 1000;
+export async function issueStepUpGrant(userId: string, organizationId: string, sessionFamilyId: string, password: string, otp: string | undefined, metadata: { ipAddress?: string; userAgent?: string }) {
+  const user = await User.findOne({ _id: userId, status: "active" }).select("+passwordHash +mfaSecretEncrypted +mfaRecoveryCodeHashes");
+  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    await recordAuthenticationEvent({ organizationId, actorUserId: userId, action: "auth.step_up.failed", outcome: "failure", metadata: { reason: "invalid_password" }, ...metadata });
+    throw new AuthError("Account verification failed", 401);
+  }
+  if (user.mfaEnabled) {
+    if (!otp || !(await consumeMfaCredential(user, otp))) {
+      await recordAuthenticationEvent({ organizationId, actorUserId: userId, action: "auth.step_up.failed", outcome: "failure", metadata: { reason: "invalid_or_missing_mfa" }, ...metadata });
+      throw new AuthError("A valid authenticator or unused recovery code is required", 401);
+    }
+  }
+  const token = randomBytes(32).toString("base64url");
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const expiresAt = new Date(Date.now() + STEP_UP_LIFETIME_MS);
+  const grant = await StepUpGrant.create({ tokenHash, userId, organizationId, sessionFamilyId, expiresAt });
+  await recordAuthenticationEvent({ organizationId, actorUserId: userId, action: "auth.step_up.issued", metadata: { grantId: grant.id, expiresAt }, ...metadata });
+  return { token, expiresAt };
 }
