@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { requireStepUp } from "../../middleware/require-step-up.js";
 
 let replicaSet!: MongoMemoryReplSet;
 let mongoose!: typeof import("mongoose").default;
@@ -178,6 +179,30 @@ describe("authentication and tenant integration", () => {
     expect(grant.expiresAt.getTime()).toBeGreaterThan(Date.now());
     expect(stored?.tokenHash).toMatch(/^[a-f0-9]{64}$/);
     expect(stored?.tokenHash).not.toBe(grant.token);
+    const request = (sessionFamilyId: string) => ({
+      header: (name: string) => name === "x-step-up-token" ? grant.token : undefined,
+      get: () => "ProcuraOS integration test",
+      ip: "127.0.0.1",
+      path: "/api/v1/purchase-orders/test/approve",
+      auth: { userId: registered.user.id, organizationId: registered.organization.id, sessionFamilyId },
+    });
+    const response = () => ({
+      statusCode: 200, body: null,
+      status(code: number) { this.statusCode = code; return this; },
+      json(body: unknown) { this.body = body; return this; },
+    });
+    let nextCalls = 0;
+    const next = (error?: unknown) => { if (error) throw error; nextCalls += 1; };
+    const wrongSessionResponse = response();
+    await requireStepUp(request("different-session") as never, wrongSessionResponse as never, next as never);
+    expect(wrongSessionResponse.statusCode).toBe(403);
+    const acceptedResponse = response();
+    await requireStepUp(request(session!.familyId) as never, acceptedResponse as never, next as never);
+    expect(nextCalls).toBe(1);
+    const replayResponse = response();
+    await requireStepUp(request(session!.familyId) as never, replayResponse as never, next as never);
+    expect(replayResponse.statusCode).toBe(403);
+
     const filter = {
       tokenHash: (await import("node:crypto")).createHash("sha256").update(grant.token).digest("hex"),
       userId: registered.user.id, organizationId: registered.organization.id,
