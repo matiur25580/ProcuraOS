@@ -184,10 +184,16 @@ export async function rotateRefreshToken(token: string, metadata: { userAgent?: 
 }
 
 export async function revokeRefreshToken(token: string): Promise<void> {
-  await RefreshSession.updateOne({ tokenHash: hashRefreshToken(token), revokedAt: null }, { $set: { revokedAt: new Date() } });
+  const session = await RefreshSession.findOne({ tokenHash: hashRefreshToken(token) });
+  const result = await RefreshSession.updateOne({ tokenHash: hashRefreshToken(token), revokedAt: null }, { $set: { revokedAt: new Date() } });
+  if (result.modifiedCount && session) await recordAuthenticationEvent({ organizationId: session.organizationId, actorUserId: session.userId, action: "auth.session.revoked", metadata: { scope: "current_session" } });
 }
 export async function revokeAllUserSessions(userId: string): Promise<void> {
+  const sessions = await RefreshSession.find({ userId, revokedAt: null }).select("organizationId");
   await RefreshSession.updateMany({ userId, revokedAt: null }, { $set: { revokedAt: new Date() } });
+  for (const organizationId of new Set(sessions.map((session) => session.organizationId.toString()))) {
+    await recordAuthenticationEvent({ organizationId, actorUserId: userId, action: "auth.sessions.revoked_all", metadata: { scope: "all_user_sessions" } });
+  }
 }
 
 export async function createOrganizationForUser(userId: string, name: string) {
@@ -225,7 +231,7 @@ export async function listUserOrganizations(userId: string) {
   });
 }
 
-export async function switchUserOrganization(userId: string, organizationId: string, metadata: { userAgent?: string; ipAddress?: string }) {
+export async function switchUserOrganization(userId: string, organizationId: string, metadata: { userAgent?: string; ipAddress?: string }, fromOrganizationId?: string) {
   const [membership, organization] = await Promise.all([
     Membership.findOne({ userId, organizationId, status: "active" }),
     Organization.findOne({ _id: organizationId, status: "active" }),
@@ -234,7 +240,7 @@ export async function switchUserOrganization(userId: string, organizationId: str
   const user = await User.findOne({ _id: userId, status: "active" });
   if (!user) throw new AuthError("Account is unavailable", 401);
   const tokens = await issueSession(user.id, organization.id, membership.id, metadata);
-  await recordAuthenticationEvent({ organizationId: organization._id, actorUserId: user._id, action: "auth.organization.switched", metadata: { toOrganizationId: organization.id }, ...metadata });
+  await recordAuthenticationEvent({ organizationId: organization._id, actorUserId: user._id, action: "auth.organization.switched", metadata: { ...(fromOrganizationId ? { fromOrganizationId } : {}), toOrganizationId: organization.id }, ...metadata });
   return { organization: { id: organization.id, name: organization.name, slug: organization.slug }, role: membership.role, ...tokens };
 }
 
