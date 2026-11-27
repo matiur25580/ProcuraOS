@@ -24,8 +24,9 @@ export async function importStatementLine(org: string, actor: string, input: Imp
   if (error && typeof error === "object" && "code" in error && error.code === 11000) throw new PaymentError("This bank transaction has already been imported", 409);
   throw error;
  } finally { await session.endSession(); }
- if (!created) throw new Error("Statement line import did not complete");
- return created;
+ const result = created as InstanceType<typeof BankStatementLine> | null;
+ if (!result) throw new Error("Statement line import did not complete");
+ return result;
 }
 export async function listStatementLines(org: string) {
  return BankStatementLine.find({ organizationId: org }).sort({ transactionDate: -1, createdAt: -1 }).limit(500)
