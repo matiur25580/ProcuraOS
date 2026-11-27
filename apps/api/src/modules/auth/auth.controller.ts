@@ -33,12 +33,12 @@ export async function refreshController(req: Request, res: Response) {
 }
 export async function logoutController(req: Request, res: Response) {
   const token = req.cookies?.procuraos_refresh as string | undefined;
-  if (token) await revokeRefreshToken(token);
+  if (token) await revokeRefreshToken(token, metadata(req));
   clearRefreshCookie(res);
   res.status(200).json({ success: true, data: { message: "Signed out successfully" } });
 }
 export async function logoutAllController(req: Request, res: Response) {
-  await revokeAllUserSessions(req.auth!.userId);
+  await revokeAllUserSessions(req.auth!.userId, metadata(req));
   clearRefreshCookie(res);
   res.status(200).json({ success: true, data: { message: "All sessions revoked" } });
 }
@@ -62,7 +62,7 @@ export async function listOrganizationsController(req: Request, res: Response) {
 export async function switchOrganizationController(req: Request, res: Response) {
   const oldToken = req.cookies?.procuraos_refresh as string | undefined;
   const result = await switchUserOrganization(req.auth!.userId, req.body.organizationId as string, metadata(req), req.auth!.organizationId);
-  if (oldToken) await revokeRefreshToken(oldToken);
+  if (oldToken) await revokeRefreshToken(oldToken, metadata(req));
   setRefreshCookie(res, result.refreshToken);
   res.status(200).json({ success: true, data: { organization: result.organization, role: result.role, accessToken: result.accessToken } });
 }
