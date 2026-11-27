@@ -189,16 +189,16 @@ export async function rotateRefreshToken(token: string, metadata: { userAgent?: 
   };
 }
 
-export async function revokeRefreshToken(token: string): Promise<void> {
+export async function revokeRefreshToken(token: string, metadata: { ipAddress?: string; userAgent?: string } = {}): Promise<void> {
   const session = await RefreshSession.findOne({ tokenHash: hashRefreshToken(token) });
   const result = await RefreshSession.updateOne({ tokenHash: hashRefreshToken(token), revokedAt: null }, { $set: { revokedAt: new Date() } });
-  if (result.modifiedCount && session) await recordAuthenticationEvent({ organizationId: session.organizationId, actorUserId: session.userId, action: "auth.session.revoked", metadata: { scope: "current_session" } });
+  if (result.modifiedCount && session) await recordAuthenticationEvent({ organizationId: session.organizationId, actorUserId: session.userId, action: "auth.session.revoked", metadata: { scope: "current_session" }, ...metadata });
 }
-export async function revokeAllUserSessions(userId: string): Promise<void> {
+export async function revokeAllUserSessions(userId: string, metadata: { ipAddress?: string; userAgent?: string } = {}): Promise<void> {
   const sessions = await RefreshSession.find({ userId, revokedAt: null }).select("organizationId");
   await RefreshSession.updateMany({ userId, revokedAt: null }, { $set: { revokedAt: new Date() } });
   for (const organizationId of new Set(sessions.map((session) => session.organizationId.toString()))) {
-    await recordAuthenticationEvent({ organizationId, actorUserId: userId, action: "auth.sessions.revoked_all", metadata: { scope: "all_user_sessions" } });
+    await recordAuthenticationEvent({ organizationId, actorUserId: userId, action: "auth.sessions.revoked_all", metadata: { scope: "all_user_sessions" }, ...metadata });
   }
 }
 
