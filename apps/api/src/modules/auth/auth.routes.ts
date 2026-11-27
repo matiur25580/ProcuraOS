@@ -3,8 +3,8 @@ import rateLimit from "express-rate-limit";
 import { authenticate } from "../../middleware/authenticate.js";
 import { requireTrustedOrigin } from "../../middleware/require-trusted-origin.js";
 import { validateBody } from "../../middleware/validate.js";
-import { createOrganizationController, listOrganizationsController, loginController, logoutAllController, logoutController, meController, refreshController, registerController, switchOrganizationController, updateProfileController, listSessionsController, revokeSessionController, verifyEmailController, forgotPasswordController, resetPasswordController } from "./auth.controller.js";
-import { createOrganizationSchema, loginSchema, registerSchema, switchOrganizationSchema, updateProfileSchema, verifyEmailSchema, forgotPasswordSchema, resetPasswordSchema } from "./auth.schemas.js";
+import { createOrganizationController, listOrganizationsController, loginController, logoutAllController, logoutController, meController, refreshController, registerController, switchOrganizationController, updateProfileController, listSessionsController, revokeSessionController, verifyEmailController, forgotPasswordController, resetPasswordController, setupMfaController, enableMfaController, disableMfaController } from "./auth.controller.js";
+import { createOrganizationSchema, loginSchema, registerSchema, switchOrganizationSchema, updateProfileSchema, verifyEmailSchema, forgotPasswordSchema, resetPasswordSchema, mfaEnableSchema, mfaDisableSchema } from "./auth.schemas.js";
 
 export const authRouter = Router();
 const authLimiter = rateLimit({
@@ -27,3 +27,7 @@ authRouter.delete("/sessions/:sessionId", authenticate, revokeSessionController)
 authRouter.get("/organizations", authenticate, listOrganizationsController);
 authRouter.post("/organizations", authenticate, validateBody(createOrganizationSchema), createOrganizationController);
 authRouter.post("/switch-organization", authenticate, validateBody(switchOrganizationSchema), switchOrganizationController);
+
+authRouter.post("/mfa/setup", authenticate, setupMfaController);
+authRouter.post("/mfa/enable", authenticate, validateBody(mfaEnableSchema), enableMfaController);
+authRouter.post("/mfa/disable", authenticate, validateBody(mfaDisableSchema), disableMfaController);
