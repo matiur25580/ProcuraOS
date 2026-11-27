@@ -356,16 +356,30 @@ function totp(secret: string, counter: number) {
   const binary = ((digest[offset]! & 127) << 24) | ((digest[offset + 1]! & 255) << 16) | ((digest[offset + 2]! & 255) << 8) | (digest[offset + 3]! & 255);
   return String(binary % 1_000_000).padStart(6, "0");
 }
-function verifyTotp(secret: string, code: string) {
-  if (!/^\d{6}$/.test(code)) return false;
+function matchingTotpCounter(secret: string, code: string): number | null {
+  if (!/^\d{6}$/.test(code)) return null;
   const counter = Math.floor(Date.now() / 30_000);
-  return [-1, 0, 1].some((drift) => totp(secret, counter + drift) === code);
+  for (const drift of [-1, 0, 1]) {
+    const candidate = counter + drift;
+    if (candidate >= 0 && totp(secret, candidate) === code) return candidate;
+  }
+  return null;
 }
+function verifyTotp(secret: string, code: string) { return matchingTotpCounter(secret, code) !== null; }
 function recoveryHash(code: string) { return createHash("sha256").update(code.replace(/-/g, "").toUpperCase()).digest("hex"); }
-async function consumeMfaCredential(user: { mfaSecretEncrypted?: string | null; mfaRecoveryCodeHashes?: string[]; save(): Promise<unknown> }, code: string) {
-  if (user.mfaSecretEncrypted && verifyTotp(decryptMfaSecret(user.mfaSecretEncrypted), code)) return true;
+async function consumeMfaCredential(user: { _id?: unknown; mfaSecretEncrypted?: string | null; mfaRecoveryCodeHashes?: string[]; save(): Promise<unknown> }, code: string) {
+  if (user.mfaSecretEncrypted) {
+    const counter = matchingTotpCounter(decryptMfaSecret(user.mfaSecretEncrypted), code);
+    if (counter !== null) {
+      const claimed = await User.updateOne({
+        _id: user._id,
+        $or: [{ mfaLastUsedCounter: { $lt: counter } }, { mfaLastUsedCounter: { $exists: false } }],
+      }, { $set: { mfaLastUsedCounter: counter } });
+      return claimed.modifiedCount === 1;
+    }
+  }
   const hash = recoveryHash(code);
-  const result = await User.updateOne({ _id: (user as any)._id, mfaRecoveryCodeHashes: hash }, { $pull: { mfaRecoveryCodeHashes: hash } });
+  const result = await User.updateOne({ _id: user._id, mfaRecoveryCodeHashes: hash }, { $pull: { mfaRecoveryCodeHashes: hash } });
   return result.modifiedCount === 1;
 }
 async function recordMfaAudit(organizationId: string, userId: string, action: string, metadata: { ipAddress?: string; userAgent?: string }) {
@@ -403,6 +417,7 @@ export async function disableMfa(userId: string, organizationId: string, passwor
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) throw new AuthError("Invalid account credentials", 401);
   if (!user.mfaEnabled || !(await consumeMfaCredential(user, code))) throw new AuthError("Invalid MFA credential", 401);
   user.mfaEnabled = false;
+  user.mfaLastUsedCounter = -1;
   user.mfaSecretEncrypted = null;
   user.mfaPendingSecretEncrypted = null;
   user.mfaRecoveryCodeHashes = [];
