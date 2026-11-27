@@ -6,7 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 
 type Member = { membershipId: string; userId: string; name: string; email: string; role: string; status: "active" | "suspended"; accountStatus: string; joinedAt: string };
 type Invitation = { id: string; email: string; role: string; expiresAt: string; createdAt: string };
-type AuditEvent = { id: string; action: string; targetType: string; actor: { name: string; email: string } | null; createdAt: string };
+type AuditEvent = { id: string; action: string; outcome: "success" | "failure"; targetType: string; actor: { name: string; email: string } | null; createdAt: string };
 type Session = { id: string; current: boolean; userAgent: string; ipAddress: string | null; createdAt: string; expiresAt: string };
 type Organization = { id: string; name: string; slug: string; status: string };
 type MfaSetup = { secret: string; otpauthUrl: string };
@@ -181,7 +181,7 @@ export function OrganizationAdminPage() {
           </section>
           {canManage && <section className="admin-panel"><div className="panel-title"><div><h2>Pending invitations</h2><p>Only active, unexpired invitations are shown.</p></div><span className="count-pill">{invitations.length}</span></div>{invitations.length ? <div className="invitation-list">{invitations.map(item => <div className="invitation-row" key={item.id}><div><strong>{item.email}</strong><span>{roleLabel(item.role)} · expires {new Date(item.expiresAt).toLocaleDateString()}</span></div><button className="danger-text" onClick={() => void revokeInvitation(item.id)}>Revoke</button></div>)}</div> : <p className="empty-state">No pending invitations.</p>}</section>}
         </>}
-        {tab === "audit" && canReadAudit && <section className="admin-panel"><div className="panel-title"><div><h2>Organization audit trail</h2><p>Recent governance events for this tenant.</p></div></div>{events.length ? <div className="activity-list">{events.map(item => <div className="activity-row" key={item.id}><span className="activity-dot" /><div><strong>{item.action.replaceAll(".", " ")}</strong><span>{item.actor?.name ?? "System"} · {item.targetType}</span></div><time>{new Date(item.createdAt).toLocaleString()}</time></div>)}</div> : <p className="empty-state">No audit events recorded yet.</p>}</section>}
+        {tab === "audit" && canReadAudit && <section className="admin-panel"><div className="panel-title"><div><h2>Organization audit trail</h2><p>Recent governance events for this tenant.</p></div></div>{events.length ? <div className="activity-list">{events.map(item => <div className="activity-row" key={item.id}><span className="activity-dot" /><div><strong>{item.action.replaceAll(".", " ")} <small className={item.outcome === "failure" ? "audit-failure" : "audit-success"}>{item.outcome}</small></strong><span>{item.actor?.name ?? "System"} · {item.targetType}</span></div><time>{new Date(item.createdAt).toLocaleString()}</time></div>)}</div> : <p className="empty-state">No audit events recorded yet.</p>}</section>}
         {tab === "security" && <>
           <section className="admin-panel">
             <div className="panel-title"><div><h2>Multi-factor authentication</h2><p>Protect sign-ins with an authenticator app and one-time recovery codes.</p></div><span className={mfaEnabled ? "status-active" : "status-suspended"}>{mfaEnabled ? "Enabled" : "Not enabled"}</span></div>
