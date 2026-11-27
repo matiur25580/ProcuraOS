@@ -245,7 +245,7 @@ export async function listAuditEvents(organizationId: string, limit: number) {
   return events.map((event) => {
     const actor = event.actorUserId ? actorById.get(event.actorUserId.toString()) : undefined;
     return {
-      id: event._id.toString(), action: event.action, targetType: event.targetType,
+      id: event._id.toString(), action: event.action, outcome: event.outcome, targetType: event.targetType,
       targetId: event.targetId, metadata: event.metadata,
       actor: actor ? { id: actor._id.toString(), name: actor.name, email: actor.email } : null,
       createdAt: event.createdAt,
