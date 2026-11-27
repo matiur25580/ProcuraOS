@@ -65,14 +65,14 @@ All five settings are required in production. In development without SMTP, email
 
 ## Multi-factor authentication
 
-Users can enroll an authenticator app using the standard RFC 6238 TOTP format. The API encrypts pending and active TOTP secrets with AES-256-GCM using a key derived from `JWT_ACCESS_SECRET`; recovery codes are stored only as SHA-256 hashes. Enabling MFA requires a valid authenticator code and returns ten one-time recovery codes once. Login accepts a six-digit TOTP code or one unused recovery code in the `otp` field. Recovery codes are atomically consumed, and disabling MFA requires both the account password and a valid TOTP/recovery credential.
+Users can enroll an authenticator app using the standard RFC 6238 TOTP format. The API encrypts pending and active TOTP secrets with AES-256-GCM using the dedicated `MFA_ENCRYPTION_KEY`; recovery codes are stored only as SHA-256 hashes. Enabling MFA requires a valid authenticator code and returns ten one-time recovery codes once. Login accepts a six-digit TOTP code or one unused recovery code in the `otp` field. Recovery codes are atomically consumed, and disabling MFA requires both the account password and a valid TOTP/recovery credential.
 
 Authenticated endpoints:
 - `POST /api/v1/auth/mfa/setup` creates an enrollment secret and otpauth URI.
 - `POST /api/v1/auth/mfa/enable` with `{ "code": "123456" }` activates MFA and returns recovery codes.
 - `POST /api/v1/auth/mfa/disable` with `{ "password": "...", "code": "..." }` disables MFA.
 
-Treat recovery codes like passwords: display and store them securely when first returned. Rotating `JWT_ACCESS_SECRET` also rotates the derived MFA encryption key; production key rotation must therefore include a planned MFA-secret re-enrollment or a dedicated versioned KMS key strategy.
+Treat recovery codes like passwords: display and store them securely when first returned. Set `MFA_ENCRYPTION_KEY` to 32 cryptographically random bytes encoded as 64 hexadecimal characters. Keep it separate from `JWT_ACCESS_SECRET`, back it up in a secrets manager, and use a planned versioned-key migration when rotating it.
 
 ## Integration tests
 
@@ -92,9 +92,9 @@ Set `JWT_ACCESS_SECRET` to a cryptographically random secret of at least 32 char
 
 ## Remaining production work
 
-- Registration and organization creation currently use compensating cleanup, not a multi-document transaction. Keep production rollout blocked until the deployment uses a replica set and the workflows are migrated to transactions or a durable outbox.
-- Add TOTP-based MFA enrollment, challenge verification, recovery codes and step-up authentication.
+- Multi-document registration and organization creation require a replica-set or sharded MongoDB deployment because they use MongoDB transactions.
+- Add step-up authentication for high-risk actions such as payment-detail changes, ownership transfer and privileged exports.
 - Add a cross-tab refresh coordination strategy or carefully designed rotation grace policy.
-- Add audit events for authentication, session revocation and organization switching.
+- Extend authentication audit events to cover login failures, session revocation and organization switching.
 - Extend replica-set tests to API-level end-to-end tests, failure injection and concurrency/race scenarios.
 - Use a shared rate-limit store when deploying multiple API instances.
