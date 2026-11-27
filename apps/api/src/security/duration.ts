@@ -6,7 +6,7 @@ const UNIT_MILLISECONDS = {
 } as const;
 
 export function durationToMs(value: string): number {
-  const match = /^([1-9]\\d*)([smhd])$/.exec(value);
+  const match = /^([1-9]\d*)([smhd])$/.exec(value);
   if (!match) throw new Error("Duration must be a positive integer followed by s, m, h or d");
 
   const amount = Number(match[1]);
