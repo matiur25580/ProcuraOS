@@ -142,7 +142,8 @@ export function OrganizationAdminPage() {
       setMfaEnabled(false); setMfaPassword(""); setMfaCode(""); setRecoveryCodes([]); setNotice("MFA has been disabled."); await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to disable MFA"); }
   }
-\n  async function copyInvite() {
+
+  async function copyInvite() {
     if (!inviteUrl) return;
     try { await navigator.clipboard.writeText(inviteUrl); setNotice("Invitation link copied."); }
     catch { setError("Clipboard access is unavailable. Select and copy the invitation link manually."); }
