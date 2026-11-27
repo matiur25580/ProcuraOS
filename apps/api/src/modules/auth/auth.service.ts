@@ -49,7 +49,7 @@ async function recordAuthenticationEvent(input: { organizationId?: unknown; acto
   });
 }
 
-async function recordLoginFailure(userId: unknown, reason: string, metadata: { ipAddress?: string; userAgent?: string }) {
+async function recordLoginFailure(userId: mongoose.Types.ObjectId, reason: string, metadata: { ipAddress?: string; userAgent?: string }) {
   const membership = await Membership.findOne({ userId, status: "active" }).select("organizationId");
   await recordAuthenticationEvent({ organizationId: membership?.organizationId, actorUserId: userId, action: "auth.login.failed", outcome: "failure", metadata: { reason }, ...metadata });
 }
