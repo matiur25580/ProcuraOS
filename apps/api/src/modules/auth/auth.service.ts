@@ -372,7 +372,7 @@ function matchingTotpCounter(secret: string, code: string): number | null {
   return null;
 }
 function recoveryHash(code: string) { return createHash("sha256").update(code.replace(/-/g, "").toUpperCase()).digest("hex"); }
-async function consumeMfaCredential(user: { _id?: unknown; mfaSecretEncrypted?: string | null; mfaRecoveryCodeHashes?: string[]; save(): Promise<unknown> }, code: string) {
+async function consumeMfaCredential(user: { _id: mongoose.Types.ObjectId; mfaSecretEncrypted?: string | null; mfaRecoveryCodeHashes?: string[] }, code: string) {
   if (user.mfaSecretEncrypted) {
     const counter = matchingTotpCounter(decryptMfaSecret(user.mfaSecretEncrypted), code);
     if (counter !== null) {
