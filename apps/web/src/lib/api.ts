@@ -58,3 +58,14 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}, retry 
   }
   return parseResponse<T>(response);
 }
+
+export async function requestStepUpToken(): Promise<string | null> {
+  const password = window.prompt("Confirm your account password to perform this sensitive action.");
+  if (password === null || !password) return null;
+  const otp = window.prompt("Enter your authenticator or recovery code if MFA is enabled. Leave blank if MFA is disabled.") ?? "";
+  const result = await apiRequest<{ token: string }>("/auth/step-up", {
+    method: "POST",
+    body: JSON.stringify({ password, ...(otp.trim() ? { otp: otp.trim() } : {}) }),
+  });
+  return result.token;
+}
