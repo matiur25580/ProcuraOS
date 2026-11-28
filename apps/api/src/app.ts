@@ -13,6 +13,7 @@ import { purchaseOrderRouter } from "./modules/purchase-orders/purchase-order.ro
 import { invoiceRouter } from "./modules/invoices/invoice.routes.js";
 import { paymentRouter } from "./modules/payments/payment.routes.js";
 import { reconciliationRouter } from "./modules/payments/reconciliation.routes.js";
+import { contractRouter } from "./modules/contracts/contract.routes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { notFoundHandler } from "./middleware/not-found.js";
 export const app = express();
@@ -27,4 +28,5 @@ app.use(env.API_PREFIX + "/purchase-orders", purchaseOrderRouter);
 app.use(env.API_PREFIX + "/invoices", invoiceRouter);
 app.use(env.API_PREFIX + "/payments", paymentRouter);
 app.use(env.API_PREFIX + "/reconciliation", reconciliationRouter);
+app.use(env.API_PREFIX + "/contracts", contractRouter);
 app.use(notFoundHandler); app.use(errorHandler);
