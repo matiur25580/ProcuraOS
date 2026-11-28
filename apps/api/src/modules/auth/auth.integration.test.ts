@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { requireStepUp } from "../../middleware/require-step-up.js";
 
 let replicaSet!: MongoMemoryReplSet;
 let mongoose!: typeof import("mongoose").default;
@@ -142,11 +143,14 @@ describe("authentication and tenant integration", () => {
       return Buffer.from(output);
     };
     const counter = Math.floor(Date.now() / 30_000);
-    const message = Buffer.alloc(8); message.writeBigUInt64BE(BigInt(counter));
-    const digest = (await import("node:crypto")).createHmac("sha1", decodeBase32(enrollment.secret)).update(message).digest();
-    const offset = digest[digest.length - 1]! & 15;
-    const binary = ((digest[offset]! & 127) << 24) | ((digest[offset + 1]! & 255) << 16) | ((digest[offset + 2]! & 255) << 8) | (digest[offset + 3]! & 255);
-    const code = String(binary % 1_000_000).padStart(6, "0");
+    const codeFor = async (offsetCounter: number) => {
+      const message = Buffer.alloc(8); message.writeBigUInt64BE(BigInt(counter + offsetCounter));
+      const digest = (await import("node:crypto")).createHmac("sha1", decodeBase32(enrollment.secret)).update(message).digest();
+      const offset = digest[digest.length - 1]! & 15;
+      const binary = ((digest[offset]! & 127) << 24) | ((digest[offset + 1]! & 255) << 16) | ((digest[offset + 2]! & 255) << 8) | (digest[offset + 3]! & 255);
+      return String(binary % 1_000_000).padStart(6, "0");
+    };
+    const code = await codeFor(0);
     const enabled = await auth.enableMfa(registered.user.id, registered.organization.id, code, metadata);
     expect(enabled.mfaEnabled).toBe(true);
     expect(enabled.recoveryCodes).toHaveLength(10);
@@ -154,10 +158,11 @@ describe("authentication and tenant integration", () => {
     expect(stored?.mfaSecretEncrypted).not.toContain(enrollment.secret);
     await expect(auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9" }, metadata))
       .rejects.toMatchObject({ statusCode: 401 });
-    const signedIn = await auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: code }, metadata);
+    const nextCode = await codeFor(1);
+    const signedIn = await auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: nextCode }, metadata);
     expect(signedIn.accessToken).toBeTruthy();
     const recovery = enabled.recoveryCodes[0]!;
-    await expect(auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: code }, metadata)).rejects.toMatchObject({ statusCode: 401 });
+    await expect(auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: nextCode }, metadata)).rejects.toMatchObject({ statusCode: 401 });
     const recovered = await auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: recovery }, metadata);
     expect(recovered.accessToken).toBeTruthy();
     await expect(auth.login({ email: "mfa@example.test", password: "CorrectHorseBattery9", otp: recovery }, metadata))
@@ -174,11 +179,31 @@ describe("authentication and tenant integration", () => {
     expect(grant.expiresAt.getTime()).toBeGreaterThan(Date.now());
     expect(stored?.tokenHash).toMatch(/^[a-f0-9]{64}$/);
     expect(stored?.tokenHash).not.toBe(grant.token);
-    const filter = { tokenHash: (await import("node:crypto")).createHash("sha256").update(grant.token).digest("hex"), userId: registered.user.id, organizationId: registered.organization.id, sessionFamilyId: session!.familyId, consumedAt: null, expiresAt: { $gt: new Date() } };
-    const consumed = await StepUpGrant.findOneAndUpdate(filter, { $set: { consumedAt: new Date() } }, { new: true });
-    expect(consumed).not.toBeNull();
-    const replay = await StepUpGrant.findOneAndUpdate(filter, { $set: { consumedAt: new Date() } }, { new: true });
-    expect(replay).toBeNull();
+    const request = (sessionFamilyId: string) => ({
+      header: (name: string) => name === "x-step-up-token" ? grant.token : undefined,
+      get: () => "ProcuraOS integration test",
+      ip: "127.0.0.1",
+      path: "/api/v1/purchase-orders/test/approve",
+      auth: { userId: registered.user.id, organizationId: registered.organization.id, sessionFamilyId },
+    });
+    const response = () => ({
+      statusCode: 200, body: null as unknown,
+      status(code: number) { this.statusCode = code; return this; },
+      json(body: unknown) { this.body = body; return this; },
+    });
+    let nextCalls = 0;
+    const next = (error?: unknown) => { if (error) throw error; nextCalls += 1; };
+    const wrongSessionResponse = response();
+    await requireStepUp(request("different-session") as never, wrongSessionResponse as never, next as never);
+    expect(wrongSessionResponse.statusCode).toBe(403);
+    const acceptedResponse = response();
+    await requireStepUp(request(session!.familyId) as never, acceptedResponse as never, next as never);
+    expect(nextCalls).toBe(1);
+    const replayResponse = response();
+    await requireStepUp(request(session!.familyId) as never, replayResponse as never, next as never);
+    expect(replayResponse.statusCode).toBe(403);
+
+
   });
 
   it("authenticates with bcrypt and rejects an incorrect password", async () => {
@@ -196,6 +221,8 @@ describe("authentication and tenant integration", () => {
       email: "login@example.test",
       password: "WrongPassword123",
     }, metadata)).rejects.toMatchObject({ statusCode: 401 });
+    const failureEvent = await AuditEvent.findOne({ action: "auth.login.failed", actorUserId: registered.user.id });
+    expect(failureEvent?.outcome).toBe("failure");
   });
 
   it("rotates refresh tokens and revokes the family when the old token is replayed", async () => {

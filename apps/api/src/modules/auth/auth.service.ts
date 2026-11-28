@@ -36,7 +36,7 @@ async function uniqueSlug(name: string): Promise<string> {
   return slug;
 }
 
-async function recordAuthenticationEvent(input: { organizationId?: unknown; actorUserId?: unknown; action: string; outcome?: "success" | "failure"; metadata?: Record<string, unknown>; ipAddress?: string; userAgent?: string }) {
+async function recordAuthenticationEvent(input: { organizationId?: mongoose.Types.ObjectId | string | null; actorUserId?: mongoose.Types.ObjectId | string | null; action: string; outcome?: "success" | "failure"; metadata?: Record<string, unknown>; ipAddress?: string; userAgent?: string }) {
   await AuditEvent.create({
     organizationId: input.organizationId ?? null,
     actorUserId: input.actorUserId ?? null,
@@ -47,6 +47,11 @@ async function recordAuthenticationEvent(input: { organizationId?: unknown; acto
     ...(input.ipAddress ? { ipAddress: input.ipAddress } : {}),
     ...(input.userAgent ? { userAgent: input.userAgent } : {}),
   });
+}
+
+async function recordLoginFailure(userId: mongoose.Types.ObjectId, reason: string, metadata: { ipAddress?: string; userAgent?: string }) {
+  const membership = await Membership.findOne({ userId, status: "active" }).select("organizationId");
+  await recordAuthenticationEvent({ ...(membership?.organizationId ? { organizationId: membership.organizationId } : {}), actorUserId: userId, action: "auth.login.failed", outcome: "failure", metadata: { reason }, ...metadata });
 }
 
 function publicUser(user: { _id: { toString(): string }; name: string; email: string }) {
@@ -117,17 +122,17 @@ export async function login(input: LoginInput, metadata: { userAgent?: string; i
   const valid = user ? await bcrypt.compare(input.password, user.passwordHash) : false;
   if (!user || !valid || user.status !== "active") {
     const membership = user ? await Membership.findOne({ userId: user._id, status: "active" }).select("organizationId") : null;
-    await recordAuthenticationEvent({ organizationId: membership?.organizationId, actorUserId: user?._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "invalid_credentials" }, ...metadata });
+    await recordAuthenticationEvent({ ...(membership?.organizationId ? { organizationId: membership.organizationId } : {}), ...(user?._id ? { actorUserId: user._id } : {}), action: "auth.login.failed", outcome: "failure", metadata: { reason: "invalid_credentials" }, ...metadata });
     throw new AuthError("Invalid email or password", 401);
   }
   if (!user.emailVerifiedAt) {
-    await recordAuthenticationEvent({ actorUserId: user._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "email_unverified" }, ...metadata });
+    await recordLoginFailure(user._id, "email_unverified", metadata);
     throw new AuthError("Verify your email address before signing in", 403);
   }
   if (user.mfaEnabled) {
-    if (!input.otp) { await recordAuthenticationEvent({ actorUserId: user._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "mfa_required" }, ...metadata }); throw new AuthError("A one-time password or recovery code is required", 401); }
+    if (!input.otp) { await recordLoginFailure(user._id, "mfa_required", metadata); throw new AuthError("A one-time password or recovery code is required", 401); }
     const securedUser = await User.findById(user._id).select("+mfaSecretEncrypted +mfaRecoveryCodeHashes");
-    if (!securedUser || !(await consumeMfaCredential(securedUser, input.otp))) { await recordAuthenticationEvent({ actorUserId: user._id, action: "auth.login.failed", outcome: "failure", metadata: { reason: "invalid_mfa" }, ...metadata }); throw new AuthError("Invalid one-time password or recovery code", 401); }
+    if (!securedUser || !(await consumeMfaCredential(securedUser, input.otp))) { await recordLoginFailure(user._id, "invalid_mfa", metadata); throw new AuthError("Invalid one-time password or recovery code", 401); }
   }
   const membership = await Membership.findOne({ userId: user._id, status: "active" }).sort({ createdAt: 1 });
   if (!membership) throw new AuthError("No active organization membership was found", 403);
@@ -145,6 +150,7 @@ export async function rotateRefreshToken(token: string, metadata: { userAgent?: 
   const existing = await RefreshSession.findOne({ tokenHash: oldHash }).select("+tokenHash +replacedByHash");
   if (!existing) throw new AuthError("Refresh session is invalid or expired", 401);
   if (existing.revokedAt || existing.replacedByHash || existing.expiresAt <= new Date()) {
+    await recordAuthenticationEvent({ organizationId: existing.organizationId, actorUserId: existing.userId, action: "auth.session.reuse_detected", outcome: "failure", metadata: { familyId: existing.familyId }, ...metadata });
     await RefreshSession.updateMany({ familyId: existing.familyId, revokedAt: null }, { $set: { revokedAt: new Date() } });
     throw new AuthError("Refresh token reuse detected; sign in again", 401);
   }
@@ -183,11 +189,17 @@ export async function rotateRefreshToken(token: string, metadata: { userAgent?: 
   };
 }
 
-export async function revokeRefreshToken(token: string): Promise<void> {
-  await RefreshSession.updateOne({ tokenHash: hashRefreshToken(token), revokedAt: null }, { $set: { revokedAt: new Date() } });
+export async function revokeRefreshToken(token: string, metadata: { ipAddress?: string; userAgent?: string } = {}): Promise<void> {
+  const session = await RefreshSession.findOne({ tokenHash: hashRefreshToken(token) });
+  const result = await RefreshSession.updateOne({ tokenHash: hashRefreshToken(token), revokedAt: null }, { $set: { revokedAt: new Date() } });
+  if (result.modifiedCount && session) await recordAuthenticationEvent({ organizationId: session.organizationId, actorUserId: session.userId, action: "auth.session.revoked", metadata: { scope: "current_session" }, ...metadata });
 }
-export async function revokeAllUserSessions(userId: string): Promise<void> {
+export async function revokeAllUserSessions(userId: string, metadata: { ipAddress?: string; userAgent?: string } = {}): Promise<void> {
+  const sessions = await RefreshSession.find({ userId, revokedAt: null }).select("organizationId");
   await RefreshSession.updateMany({ userId, revokedAt: null }, { $set: { revokedAt: new Date() } });
+  for (const organizationId of new Set(sessions.map((session) => session.organizationId.toString()))) {
+    await recordAuthenticationEvent({ organizationId, actorUserId: userId, action: "auth.sessions.revoked_all", metadata: { scope: "all_user_sessions" }, ...metadata });
+  }
 }
 
 export async function createOrganizationForUser(userId: string, name: string) {
@@ -225,7 +237,7 @@ export async function listUserOrganizations(userId: string) {
   });
 }
 
-export async function switchUserOrganization(userId: string, organizationId: string, metadata: { userAgent?: string; ipAddress?: string }) {
+export async function switchUserOrganization(userId: string, organizationId: string, metadata: { userAgent?: string; ipAddress?: string }, fromOrganizationId?: string) {
   const [membership, organization] = await Promise.all([
     Membership.findOne({ userId, organizationId, status: "active" }),
     Organization.findOne({ _id: organizationId, status: "active" }),
@@ -234,7 +246,7 @@ export async function switchUserOrganization(userId: string, organizationId: str
   const user = await User.findOne({ _id: userId, status: "active" });
   if (!user) throw new AuthError("Account is unavailable", 401);
   const tokens = await issueSession(user.id, organization.id, membership.id, metadata);
-  await recordAuthenticationEvent({ organizationId: organization._id, actorUserId: user._id, action: "auth.organization.switched", metadata: { toOrganizationId: organization.id }, ...metadata });
+  await recordAuthenticationEvent({ organizationId: organization._id, actorUserId: user._id, action: "auth.organization.switched", metadata: { ...(fromOrganizationId ? { fromOrganizationId } : {}), toOrganizationId: organization.id }, ...metadata });
   return { organization: { id: organization.id, name: organization.name, slug: organization.slug }, role: membership.role, ...tokens };
 }
 
@@ -359,9 +371,8 @@ function matchingTotpCounter(secret: string, code: string): number | null {
   }
   return null;
 }
-function verifyTotp(secret: string, code: string) { return matchingTotpCounter(secret, code) !== null; }
 function recoveryHash(code: string) { return createHash("sha256").update(code.replace(/-/g, "").toUpperCase()).digest("hex"); }
-async function consumeMfaCredential(user: { _id?: unknown; mfaSecretEncrypted?: string | null; mfaRecoveryCodeHashes?: string[]; save(): Promise<unknown> }, code: string) {
+async function consumeMfaCredential(user: { _id: mongoose.Types.ObjectId; mfaSecretEncrypted?: string | null; mfaRecoveryCodeHashes?: string[] }, code: string) {
   if (user.mfaSecretEncrypted) {
     const counter = matchingTotpCounter(decryptMfaSecret(user.mfaSecretEncrypted), code);
     if (counter !== null) {
@@ -393,7 +404,8 @@ export async function enableMfa(userId: string, organizationId: string, code: st
   const user = await User.findById(userId).select("+mfaPendingSecretEncrypted +mfaSecretEncrypted +mfaRecoveryCodeHashes");
   if (!user?.mfaPendingSecretEncrypted) throw new AuthError("Start MFA enrollment before confirming it", 409);
   const secret = decryptMfaSecret(user.mfaPendingSecretEncrypted);
-  if (!verifyTotp(secret, code)) throw new AuthError("The authenticator code is invalid", 400);
+  const verifiedCounter = matchingTotpCounter(secret, code);
+  if (verifiedCounter === null) throw new AuthError("The authenticator code is invalid", 400);
   const recoveryCodes = Array.from({ length: 10 }, () => {
     const raw = randomBytes(5).toString("hex").toUpperCase();
     return raw.match(/.{1,5}/g)!.join("-");
@@ -402,6 +414,7 @@ export async function enableMfa(userId: string, organizationId: string, code: st
   user.mfaPendingSecretEncrypted = null;
   user.mfaRecoveryCodeHashes = recoveryCodes.map(recoveryHash);
   user.mfaEnabled = true;
+  user.mfaLastUsedCounter = verifiedCounter;
   await user.save();
   await recordMfaAudit(organizationId, userId, "auth.mfa.enabled", metadata);
   return { mfaEnabled: true, recoveryCodes };

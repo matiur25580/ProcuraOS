@@ -44,7 +44,6 @@ Use `requirePermission("domain:action")` on each business route. Add new permiss
 | GET | `/api/v1/auth/organizations` | List active memberships |
 | POST | `/api/v1/auth/organizations` | Create another organization membership |
 | POST | `/api/v1/auth/switch-organization` | Switch to an organization the user belongs to |
-| POST | `/api/v1/auth/step-up` | Verify password and optional MFA, then issue a five-minute single-use grant |
 
 ## Account verification and recovery
 
@@ -66,7 +65,7 @@ All five settings are required in production. In development without SMTP, email
 
 ## Multi-factor authentication
 
-Users can enroll an authenticator app using the standard RFC 6238 TOTP format. The API encrypts pending and active TOTP secrets with AES-256-GCM using the dedicated `MFA_ENCRYPTION_KEY`; recovery codes are stored only as SHA-256 hashes. Enabling MFA requires a valid authenticator code and returns ten one-time recovery codes once. Login accepts a six-digit TOTP code or one unused recovery code in the `otp` field. Recovery codes are atomically consumed, and disabling MFA requires both the account password and a valid TOTP/recovery credential.
+Users can enroll an authenticator app using the standard RFC 6238 TOTP format. The API encrypts pending and active TOTP secrets with AES-256-GCM using the dedicated `MFA_ENCRYPTION_KEY`; recovery codes are stored only as SHA-256 hashes. Enabling MFA requires a valid authenticator code and returns ten one-time recovery codes once. Login accepts a six-digit TOTP code or one unused recovery code in the `otp` field. Accepted TOTP counters are atomically tracked so the same time-based code cannot be replayed within its validity window. Recovery codes are atomically consumed, and disabling MFA requires both the account password and a valid TOTP/recovery credential.
 
 Authenticated endpoints:
 - `POST /api/v1/auth/mfa/setup` creates an enrollment secret and otpauth URI.

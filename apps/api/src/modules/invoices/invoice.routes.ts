@@ -1,0 +1,13 @@
+import { Router } from "express";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requirePermission } from "../../middleware/authorize.js";
+import { requireStepUp } from "../../middleware/require-step-up.js";
+import { validateBody } from "../../middleware/validate.js";
+import { approveInvoiceController, listInvoicesController, rejectInvoiceController, submitInvoiceController } from "./invoice.controller.js";
+import { rejectInvoiceSchema, submitInvoiceSchema } from "./invoice.schemas.js";
+export const invoiceRouter = Router();
+invoiceRouter.use(authenticate);
+invoiceRouter.get("/", requirePermission("finance:read"), listInvoicesController);
+invoiceRouter.post("/", requirePermission("procurement:write"), validateBody(submitInvoiceSchema), submitInvoiceController);
+invoiceRouter.post("/:invoiceId/approve", requirePermission("finance:approve"), requireStepUp, approveInvoiceController);
+invoiceRouter.post("/:invoiceId/reject", requirePermission("finance:approve"), requireStepUp, validateBody(rejectInvoiceSchema), rejectInvoiceController);
