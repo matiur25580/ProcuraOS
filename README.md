@@ -25,7 +25,7 @@ ProcuraOS is a multi-tenant procurement operations platform designed to connect 
 - [x] Tenant-scoped bank statement line registration, exact-match reconciliation and currency-separated payment reporting.
 - [x] Multiple partial/final invoice payment allocations with idempotency, concurrency-safe balance reservations and settlement history.
 
-The requisition workspace is available at /requisitions, supplier sourcing at /suppliers, purchase orders at /purchase-orders, invoice controls at /invoices, payment allocations at /payments, and bank reconciliation/reporting at /reconciliation.
+The requisition workspace is available at /requisitions, supplier sourcing at /suppliers, purchase orders at /purchase-orders, invoice controls at /invoices, payment allocations at /payments, bank reconciliation/reporting at /reconciliation, and contract governance at /contracts.
 
 ## Engineering principles
 - Enforce tenant scope and authorization in the API; never trust client-supplied organization IDs.
@@ -50,8 +50,9 @@ Run npm run typecheck, npm run test and npm run build from the repository root. 
 - [x] Partial payments and payment allocations
 - [ ] Fees, split bank settlements and FX handling
 - [ ] Bank statement CSV ingestion and supported bank integrations
-- [ ] Contract lifecycle, supplier delivery integrations and notifications
+- [x] Contract lifecycle, independent finance approval, effective-date activation, obligation tracking and expiry intelligence\n- [ ] Supplier delivery integrations and notifications
 - [ ] Audit analytics, AI-assisted procurement insights with human oversight
 - [ ] Integration testing, observability and production deployment
 
 See docs/purchase-orders-goods-receipts.md, docs/supplier-onboarding-rfq.md, docs/invoice-management-three-way-matching.md and docs/payment-reconciliation-financial-reporting.md and docs/partial-payments-and-allocations.md for workflow rules, API contracts, migration instructions and known limitations.
+\n\n### Contract Lifecycle Management\n\nThe contract workspace at `/contracts` manages supplier agreements from draft through independent finance approval, activation, obligation tracking and reasoned termination. The API enforces tenant-scoped approved supplier/PO links, active contract owners, step-up authentication for sensitive decisions, and blocks self-approval. Contract expiry and overdue obligation indicators are derived from persisted dates. See [contract lifecycle documentation](docs/contract-lifecycle-management.md) for endpoints, permissions and production boundaries.\n
